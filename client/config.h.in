@@ -1,0 +1,3 @@
+#pragma once
+
+#cmakedefine Ralph_DEFAULT_REPO "@Ralph_DEFAULT_REPO@"
