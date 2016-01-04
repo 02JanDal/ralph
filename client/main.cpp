@@ -27,7 +27,7 @@ int main(int argc, char **argv) {
 
 	parser.process(app);
 
-	State state;
+	Ralph::Client::State state;
 	if (parser.isSet("directory")) {
 		state.setDir(parser.value("directory"));
 	}

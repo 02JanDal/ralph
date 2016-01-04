@@ -1,27 +1,27 @@
 find_package(Qt5 REQUIRED COMPONENTS Core Network)
 
-#set(CMAKE_AUTOMOC ON)
-
 set(SRC
-    Functional.h
-    functional/Base.h
-    functional/FunctionTraits.h
-    functional/ContainerTraits.h
-    functional/Map.h
-    functional/Filter.h
-    functional/Collection.h
-    functional/Functions.h
+	Functional.h
+	functional/Base.h
+	functional/FunctionTraits.h
+	functional/ContainerTraits.h
+	functional/Map.h
+	functional/Filter.h
+	functional/Each.h
+	functional/Tap.h
+	functional/Collection.h
+	functional/Functions.h
 
-    Json.h
-    Json.cpp
-    FileSystem.h
-    FileSystem.cpp
-    Exception.h
-    Exception.cpp
-    BaseConfigObject.h
-    BaseConfigObject.cpp
+	Json.h
+	Json.cpp
+	FileSystem.h
+	FileSystem.cpp
+	Exception.h
+	Exception.cpp
+	BaseConfigObject.h
+	BaseConfigObject.cpp
 
-    Optional.h
+	Optional.h
 )
 
 add_library(ralph_common STATIC ${SRC})

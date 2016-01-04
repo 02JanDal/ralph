@@ -9,6 +9,9 @@
 #include "PackageDatabase.h"
 #include "config.h"
 
+namespace Ralph {
+namespace Client {
+
 int State::updatePackageDB()
 {
 	std::cout << "Updating package database(s). This might take a while...\n";
@@ -94,4 +97,7 @@ Task<PackageDatabase *>::Ptr State::createDB()
 		}
 		return m_db;
 	});
+}
+
+}
 }

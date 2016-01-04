@@ -6,12 +6,10 @@
 #include "ContainerTraits.h"
 #include "FunctionTraits.h"
 
-namespace Ralph
-{
-namespace Common
-{
-namespace Functional
-{
+namespace Ralph {
+namespace Common {
+namespace Functional {
+
 template <typename OutputContainer, typename InputContainer, typename Func>
 auto filter2(const InputContainer &input, Func &&func, std::enable_if_t<FunctionTraits<Func>::arity == 1>* = nullptr)
 {

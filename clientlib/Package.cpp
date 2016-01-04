@@ -4,7 +4,10 @@
 #include "Functional.h"
 #include "PackageSource.h"
 
-using namespace Ralph::Common;
+namespace Ralph {
+using namespace Common;
+
+namespace ClientLib {
 
 PackageDependency::PackageDependency(QObject *parent)
 	: QObject(parent) {}
@@ -66,7 +69,7 @@ void Package::setName(const QString &name)
 		emit nameChanged(m_name);
 	}
 }
-void Package::setVersion(const QString &version)
+void Package::setVersion(const Version &version)
 {
 	if (version != m_version) {
 		m_version = version;
@@ -81,7 +84,7 @@ void Package::setDependencies(const QVector<PackageDependency *> &dependencies)
 	}
 }
 
-Package *Package::fromJson(const QJsonDocument &doc)
+const Package *Package::fromJson(const QJsonDocument &doc)
 {
 	using namespace Json;
 	Package *package = new Package();
@@ -89,7 +92,7 @@ Package *Package::fromJson(const QJsonDocument &doc)
 		const QJsonObject root = ensureObject(doc);
 
 		package->setName(ensureString(root, "name"));
-		package->setVersion(ensureString(root, "version"));
+		package->setVersion(Version::fromString(ensureString(root, "version")));
 		package->setDependencies(Functional::map(ensureIsArrayOf<QJsonObject>(root, "dependencies"), [package](const QJsonObject &obj)
 		{
 			PackageDependency *dep = new PackageDependency(package);
@@ -120,7 +123,7 @@ Package *Package::fromJson(const QJsonDocument &doc)
 				dep->setVersion(version);
 			}
 
-			dep->setOptional(ensureBoolean(obj, "optional", false));
+			dep->setOptional(ensureBoolean(obj, QStringLiteral("optional"), false));
 			dep->setOperatingSystems(ensureIsArrayOf<QString>(obj, "os", QVector<QString>()));
 			dep->setConfigurations(ensureIsArrayOf<QString>(obj, "config", QVector<QString>()));
 
@@ -136,4 +139,7 @@ Package *Package::fromJson(const QJsonDocument &doc)
 		delete package;
 		throw;
 	}
+}
+
+}
 }

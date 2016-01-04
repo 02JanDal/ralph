@@ -1,12 +1,12 @@
 #pragma once
 
 #include <utility>
-#include <experimental/optional>
 
-namespace Ralph
-{
-namespace Common
-{
+// TODO replace by std::optional once it's been released
+
+namespace Ralph {
+namespace Common {
+
 template <typename T>
 class Optional
 {
@@ -30,5 +30,6 @@ public:
 
 	constexpr const T value() const { return m_value; }
 };
+
 }
 }

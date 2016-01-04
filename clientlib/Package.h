@@ -6,6 +6,9 @@
 #include "VersionRequirement.h"
 
 class QJsonDocument;
+
+namespace Ralph {
+namespace ClientLib {
 class PackageSource;
 
 class PackageDependency : public QObject
@@ -61,7 +64,7 @@ class Package : public QObject
 {
 	Q_OBJECT
 	Q_PROPERTY(QString name READ name WRITE setName NOTIFY nameChanged)
-	Q_PROPERTY(QString version READ version WRITE setVersion NOTIFY versionChanged)
+	Q_PROPERTY(Version version READ version WRITE setVersion NOTIFY versionChanged)
 	Q_PROPERTY(QVector<PackageDependency *> dependencies READ dependencies WRITE setDependencies NOTIFY dependenciesChanged)
 
 public:
@@ -70,21 +73,24 @@ public:
 	QString name() const { return m_name; }
 	void setName(const QString &name);
 
-	QString version() const { return m_version; }
-	void setVersion(const QString &version);
+	Version version() const { return m_version; }
+	void setVersion(const Version &version);
 
 	QVector<PackageDependency *> dependencies() const { return m_dependencies; }
 	void setDependencies(const QVector<PackageDependency *> &dependencies);
 
-	static Package *fromJson(const QJsonDocument &doc);
+	static const Package *fromJson(const QJsonDocument &doc);
 
 signals:
 	void nameChanged(const QString &name);
-	void versionChanged(const QString &version);
+	void versionChanged(const Version &version);
 	void dependenciesChanged(const QVector<PackageDependency *> &dependencies);
 
 private:
 	QString m_name;
-	QString m_version;
+	Version m_version;
 	QVector<PackageDependency *> m_dependencies;
 };
+
+}
+}

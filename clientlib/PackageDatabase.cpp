@@ -5,7 +5,10 @@
 #include "Json.h"
 #include "PackageSource.h"
 
-using namespace Ralph::Common;
+namespace Ralph {
+using namespace Common;
+
+namespace ClientLib {
 
 PackageDatabase::PackageDatabase(const QDir &dir, const QVector<PackageDatabase *> &inherits, QObject *parent)
 	: QObject(parent), m_dir(dir), m_inherits(inherits)
@@ -23,6 +26,7 @@ Task<PackageDatabase *>::Ptr PackageDatabase::get(const QDir &dir, const QVector
 		}
 
 		PackageDatabase *db = new PackageDatabase(dir, Functional::filter(inherits, Functional::IsNull));
+		Functional::each(db->inheritedDatabases(), [db](QObject *obj) { obj->setParent(db); });
 		notifier.await(db->read());
 		notifier.await(db->build());
 		return db;
@@ -61,9 +65,36 @@ Task<void>::Ptr PackageDatabase::build()
 	return {};
 }
 
+const Package *PackageDatabase::getPackage(const QString &name, const Version &version) const
+{
+	for (const Package *pkg : m_packageMapping.values(name)) {
+		if (pkg->version() == version) {
+			return pkg;
+		}
+	}
+	for (const PackageDatabase *db : m_inherits) {
+		const Package *pkg = db->getPackage(name, version);
+		if (pkg) {
+			return pkg;
+		}
+	}
+	return nullptr;
+}
+QVector<const Package *> PackageDatabase::findPackages(const QString &name, VersionRequirement * const version) const
+{
+	QVector<const Package *> out;
+	out.append(Functional::filter2<QVector<const Package *>>(m_packageMapping.values(name), [version](const Package *pkg) { return version->accepts(pkg->version()); }));
+	for (const PackageDatabase *db : m_inherits) {
+		out.append(db->findPackages(name, version));
+	}
+	return out;
+}
+
 Task<void>::Ptr PackageDatabase::registerPackageSource(PackageSource *source)
 {
 	m_sources.append(source);
+	source->setBasePath(m_dir.absoluteFilePath("sources/" + source->name()));
+	source->setParent(this);
 	return createTask([this](Notifier notifier)
 	{
 		notifier.await(save());
@@ -74,4 +105,7 @@ Task<void>::Ptr PackageDatabase::registerPackageSource(PackageSource *source)
 Task<void>::Ptr PackageDatabase::save()
 {
 	return createTask([]() {});
+}
+
+}
 }

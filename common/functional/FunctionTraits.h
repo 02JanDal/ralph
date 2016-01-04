@@ -2,12 +2,10 @@
 
 #include <tuple>
 
-namespace Ralph
-{
-namespace Common
-{
-namespace Functional
-{
+namespace Ralph {
+namespace Common {
+namespace Functional {
+
 // https://functionalcpp.wordpress.com/2013/08/05/function-traits/
 template <typename Func>
 class FunctionTraits
@@ -59,6 +57,7 @@ template <typename Func>
 class FunctionTraits<Func&> : public FunctionTraits<Func> {};
 template <typename Func>
 class FunctionTraits<Func&&> : public FunctionTraits<Func> {};
+
 }
 }
 }

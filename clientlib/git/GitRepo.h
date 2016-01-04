@@ -10,32 +10,31 @@
 #include "Task.h"
 #include "Optional.h"
 
+struct git_repository;
+struct git_cred;
+
+namespace Ralph {
+namespace ClientLib {
+namespace Git {
+
 template <typename Class>
 class GitResource
 {
 	using FreeFunc = void(*)(Class *);
 	FreeFunc m_freeFunc;
 
-	Class *m_resource = nullptr;
+	std::shared_ptr<Class> m_resource;
 
 public:
 	explicit GitResource(FreeFunc &&free, Class *resource)
-		: m_freeFunc(free), m_resource(resource)
+		: m_resource(std::shared_ptr<Class>(resource, free))
 	{
 	}
 	explicit GitResource() {}
-	explicit GitResource(const GitResource &) = delete;
-	explicit GitResource(GitResource &&) = default;
-	GitResource &operator=(const GitResource &) = delete;
-	GitResource &operator=(GitResource &&) = default;
-	~GitResource()
-	{
-		m_freeFunc(m_resource);
-	}
 
-	inline Class *get() const { return m_resource; }
-	inline Class *operator->() const { return m_resource; }
-	inline operator Class *() const { return m_resource; }
+	inline Class *get() const { return m_resource.get(); }
+	inline Class *operator->() const { return m_resource.get(); }
+	inline operator Class *() const { return m_resource.get(); }
 	inline operator bool() const { return m_resource; }
 
 	template <typename InitFunc, typename... Args>
@@ -50,11 +49,14 @@ public:
 class GitCredentialResponse
 {
 	struct git_cred *m_cred;
+	bool m_isError = false;
 
 	explicit GitCredentialResponse(struct git_cred *cred);
+	explicit GitCredentialResponse() : m_isError(true) {}
 
 public:
 	struct git_cred *result() const { return m_cred; }
+	bool isError() const { return m_isError; }
 
 	static GitCredentialResponse createForUsername(const QString &username);
 	static GitCredentialResponse createForUsernamePassword(const QString &username, const QString &password);
@@ -119,10 +121,14 @@ public:
 
 private:
 	QDir m_dir;
-	GitResource<struct git_repository> m_repo;
+	GitResource<git_repository> m_repo;
 
 	static std::function<GitCredentialResponse(const GitCredentialQuery &)> m_credentialsFunc;
-	static int credentialsCallback(struct git_cred **out, const char *url,
+	static int credentialsCallback(git_cred **out, const char *url,
 								   const char *usernameFromUrl, const unsigned int allowedTypes,
 								   void *payload);
 };
+
+}
+}
+}

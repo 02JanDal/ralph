@@ -2,6 +2,9 @@
 
 #include <QObject>
 
+namespace Ralph {
+namespace ClientLib {
+
 class Version
 {
 public:
@@ -45,6 +48,8 @@ public:
 	Type type() const { return m_type; }
 	void setType(const Type type);
 
+	bool accepts(const Version &version) const;
+
 signals:
 	void versionChanged(const Version &version);
 	void typeChanged(const Type type);
@@ -53,3 +58,6 @@ private:
 	Version m_version;
 	Type m_type;
 };
+
+}
+}

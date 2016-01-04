@@ -2,6 +2,10 @@
 
 #include "Exception.h"
 
+namespace Ralph {
+namespace ClientLib {
+namespace Git {
+
 class GitException : public Exception
 {
 	int m_error = -1;
@@ -12,3 +16,7 @@ public:
 
 	static void checkAndThrow(const int error);
 };
+
+}
+}
+}

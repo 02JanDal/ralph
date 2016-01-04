@@ -3,13 +3,13 @@
 #include "ContainerTraits.h"
 #include "Map.h"
 #include "Filter.h"
+#include "Each.h"
+#include "Tap.h"
 
-namespace Ralph
-{
-namespace Common
-{
-namespace Functional
-{
+namespace Ralph {
+namespace Common {
+namespace Functional {
+
 template <typename Cont>
 class CollectionImpl
 {
@@ -25,17 +25,16 @@ public:
 	CollectionImpl(const Type &collection) : m_collection(collection) {}
 
 	template <typename Func>
-	inline const CollectionImpl map(Func &&func) const { return CollectionImpl(Functional::map(m_collection, func)); }
+	inline const CollectionImpl map(Func &&func) const { return CollectionImpl(Functional::map(m_collection, std::forward<Func>(func))); }
 
 	template <typename Func>
-	inline const CollectionImpl filter(Func &&func) const { return CollectionImpl(Functional::filter(m_collection, func)); }
+	inline const CollectionImpl filter(Func &&func) const { return CollectionImpl(Functional::filter(m_collection, std::forward<Func>(func))); }
 
 	template <typename Func>
-	inline const CollectionImpl tap(Func &&func) const
-	{
-		std::for_each(std::begin(func), std::end(func), std::forward<Func>(func));
-		return *this;
-	}
+	inline const CollectionImpl tap(Func &&func) const { return CollectionImpl(Functional::tap(m_collection, std::forward<Func>(func))); }
+
+	template <typename Func>
+	inline void each(Func &&func) const { Functional::each(m_collection, std::forward<Func>(func)); }
 
 	template <typename NewCont>
 	inline const CollectionImpl<NewCont> type() const

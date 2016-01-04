@@ -1,6 +1,13 @@
 #include "PackageSource.h"
 
 #include "Json.h"
+#include "Project.h"
+#include "Functional.h"
+
+namespace Ralph {
+using namespace Common;
+
+namespace ClientLib {
 
 PackageSource::PackageSource(const SourceType type, QObject *parent)
 	: QObject(parent), m_type(type) {}
@@ -24,11 +31,13 @@ PackageSource *PackageSource::fromJson(const QJsonValue &value, QObject *parent)
 			GitSinglePackageSource *source = new GitSinglePackageSource(parent);
 			source->setUrl(ensureUrl(obj, "url"));
 			source->setIdentifier(ensureString(obj, "identifier", QString()));
+			source->setPath(ensureString(obj, "path", QString()));
 			return source;
 		} else if (type == "github") {
 			GitHubSinglePackageSource *source = new GitHubSinglePackageSource(parent);
 			source->setRepo(ensureString(obj, "repo"));
 			source->setIdentifier(ensureString(obj, "identifier", QString()));
+			source->setPath(ensureString(obj, "path", QString()));
 			return source;
 		} else if (type == "gitrepo") {
 			GitRepoPackageSource *source = new GitRepoPackageSource(parent);
@@ -100,17 +109,43 @@ QJsonObject BaseGitPackageSource::toJson() const
 {
 	QJsonObject obj;
 	obj.insert("url", Json::toJson(url()));
-	if (!identifier().isNull()) {
+	if (!identifier().isEmpty()) {
 		obj.insert("identifier", identifier());
 	}
 	return obj;
 }
 
+GitSinglePackageSource::GitSinglePackageSource(const PackageSource::SourceType type, QObject *parent)
+	: BaseGitPackageSource(type, parent) {}
+
 GitSinglePackageSource::GitSinglePackageSource(QObject *parent)
 	: BaseGitPackageSource(GitSingle, parent) {}
 
+void GitSinglePackageSource::setPath(const QString &path)
+{
+	if (path != m_path) {
+		m_path = path;
+		emit pathChanged(m_path);
+	}
+}
+
+QVector<const Package *> GitSinglePackageSource::packages() const
+{
+	const Package *proj = Project::fromJson(Json::ensureDocument(basePath().absoluteFilePath(path())));
+	return {proj};
+}
+
+QJsonObject GitSinglePackageSource::toJson() const
+{
+	QJsonObject obj = BaseGitPackageSource::toJson();
+	if (!path().isEmpty()) {
+		obj.insert("path", path());
+	}
+	return obj;
+}
+
 GitHubSinglePackageSource::GitHubSinglePackageSource(QObject *parent)
-	: BaseGitPackageSource(GitHubSingle, parent) {}
+	: GitSinglePackageSource(GitHubSingle, parent) {}
 void GitHubSinglePackageSource::setRepo(const QString &repo)
 {
 	if (repo != m_repo) {
@@ -133,11 +168,26 @@ QJsonObject GitHubSinglePackageSource::toJson() const
 {
 	QJsonObject obj;
 	obj.insert("repo", repo());
-	if (!identifier().isNull()) {
+	if (!identifier().isEmpty()) {
 		obj.insert("identifier", identifier());
+	}
+	if (!path().isEmpty()) {
+		obj.insert("path", path());
 	}
 	return obj;
 }
 
 GitRepoPackageSource::GitRepoPackageSource(QObject *parent)
 	: BaseGitPackageSource(GitRepo, parent) {}
+
+QVector<const Package *> GitRepoPackageSource::packages() const
+{
+	const auto files = basePath().entryInfoList(QStringList() << "*.json", QDir::Files | QDir::NoSymLinks | QDir::Readable);
+	return Functional::map2<QVector<const Package *>>(files, [](const QFileInfo &file)
+	{
+		return Package::fromJson(Json::ensureDocument(file.absoluteFilePath()));
+	});
+}
+
+}
+}

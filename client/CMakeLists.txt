@@ -3,10 +3,10 @@ find_package(Qt5 REQUIRED COMPONENTS Core Network)
 set(CMAKE_AUTOMOC ON)
 
 set(SRC
-    main.cpp
+	main.cpp
 
-    Functions.h
-    Functions.cpp
+	Functions.h
+	Functions.cpp
 )
 
 configure_file(config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h @ONLY)

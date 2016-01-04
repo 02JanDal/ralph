@@ -1,5 +1,8 @@
 #include "Task.h"
 
+namespace Ralph {
+namespace ClientLib {
+
 Notifier::Notifier(BaseStatusObject *status, QFutureInterfaceBase *future)
 	: m_status(status), m_future(future) {}
 
@@ -25,4 +28,7 @@ void Notifier::progressTotal(const int total) const
 		m_delegateTo->progressTotal(total);
 	}
 	m_future->setProgressRange(0, total);
+}
+
+}
 }

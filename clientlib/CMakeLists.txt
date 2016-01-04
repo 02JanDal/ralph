@@ -4,23 +4,26 @@ find_package(LibGit2 REQUIRED)
 set(CMAKE_AUTOMOC ON)
 
 set(SRC
-    Package.h
-    Package.cpp
-    PackageDatabase.h
-    PackageDatabase.cpp
-    PackageSource.h
-    PackageSource.cpp
+	Package.h
+	Package.cpp
+	PackageDatabase.h
+	PackageDatabase.cpp
+	PackageSource.h
+	PackageSource.cpp
 
-    VersionRequirement.h
-    VersionRequirement.cpp
+	Project.h
+	Project.cpp
 
-    Task.h
-    Task.cpp
+	VersionRequirement.h
+	VersionRequirement.cpp
 
-    git/GitRepo.h
-    git/GitRepo.cpp
-    git/GitException.h
-    git/GitException.cpp
+	Task.h
+	Task.cpp
+
+	git/GitRepo.h
+	git/GitRepo.cpp
+	git/GitException.h
+	git/GitException.cpp
 )
 
 add_library(ralph_clientlib SHARED ${SRC})

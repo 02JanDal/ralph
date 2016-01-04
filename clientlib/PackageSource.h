@@ -2,9 +2,16 @@
 
 #include <QObject>
 #include <QUrl>
+#include <QDir>
 
+QT_BEGIN_NAMESPACE
 class QJsonValue;
 class QJsonObject;
+QT_END_NAMESPACE
+
+namespace Ralph {
+namespace ClientLib {
+class Package;
 
 class PackageSource : public QObject
 {
@@ -26,19 +33,29 @@ public:
 	SourceType type() const { return m_type; }
 	virtual QString typeString() const = 0;
 
+	// properties
 	QString name() const { return m_name; }
 	void setName(const QString &name);
 
+	// (de-)serialization
 	static PackageSource *fromJson(const QJsonValue &value, QObject *parent = nullptr);
 	virtual QString toString() const { return QString(); }
 	virtual QJsonObject toJson() const = 0;
+
+	// package access
+	virtual QVector<const Package *> packages() const = 0;
+
+	QDir basePath() const { return m_basePath; }
+	/// @internal For usage by PackageDatabase only
+	void setBasePath(const QDir &dir) { m_basePath = dir; }
 
 signals:
 	void nameChanged(const QString &name);
 
 private:
 	const SourceType m_type;
-	QString m_name;
+	QString m_name;\
+	QDir m_basePath;
 };
 
 class BaseGitPackageSource : public PackageSource
@@ -72,13 +89,31 @@ private:
 class GitSinglePackageSource : public BaseGitPackageSource
 {
 	Q_OBJECT
+	Q_PROPERTY(QString path READ path WRITE setPath NOTIFY pathChanged)
+
+protected:
+	explicit GitSinglePackageSource(const SourceType type, QObject *parent = nullptr);
+
 public:
 	explicit GitSinglePackageSource(QObject *parent = nullptr);
 
 	QString typeString() const override { return "git"; }
+
+	QString path() const { return m_path; }
+	void setPath(const QString &path);
+
+	QVector<const Package *> packages() const override;
+
+	QJsonObject toJson() const override;
+
+signals:
+	void pathChanged(const QString &path);
+
+private:
+	QString m_path;
 };
 
-class GitHubSinglePackageSource : public BaseGitPackageSource
+class GitHubSinglePackageSource : public GitSinglePackageSource
 {
 	Q_OBJECT
 	Q_PROPERTY(QString repo READ repo WRITE setRepo NOTIFY repoChanged)
@@ -112,4 +147,9 @@ public:
 	explicit GitRepoPackageSource(QObject *parent = nullptr);
 
 	QString typeString() const override { return "gitrepo"; }
+
+	QVector<const Package *> packages() const override;
 };
+
+}
+}

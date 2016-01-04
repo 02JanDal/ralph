@@ -8,6 +8,9 @@
 #include "VersionRequirement.h"
 #include "Task.h"
 
+namespace Ralph {
+namespace ClientLib {
+
 class PackageDatabase : public QObject
 {
 	Q_OBJECT
@@ -24,11 +27,13 @@ public:
 	Task<void>::Ptr read();
 	Task<void>::Ptr build();
 
-	const Package *getPackage(const QString &name, const Version &version);
-	QVector<const Package *> findPackages(const QString &name, VersionRequirement * const version);
+	const Package *getPackage(const QString &name, const Version &version) const;
+	QVector<const Package *> findPackages(const QString &name, VersionRequirement * const version) const;
 
 	QVector<PackageSource *> sources() const { return m_sources; }
 	Task<void>::Ptr registerPackageSource(PackageSource *source);
+
+	QVector<PackageDatabase *> inheritedDatabases() const { return m_inherits; }
 
 private: // internal
 	Task<void>::Ptr save();
@@ -45,3 +50,6 @@ private: // packages, semi-static
 	QVector<const Package *> m_packages;
 	QMultiHash<QString, const Package *> m_packageMapping;
 };
+
+}
+}

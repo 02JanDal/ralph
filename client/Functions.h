@@ -4,6 +4,11 @@
 
 #include "PackageDatabase.h"
 
+namespace Ralph {
+using namespace ClientLib;
+
+namespace Client {
+
 class State
 {
 public:
@@ -21,3 +26,6 @@ private:
 	PackageDatabase *m_db = nullptr;
 	QString m_dir;
 };
+
+}
+}

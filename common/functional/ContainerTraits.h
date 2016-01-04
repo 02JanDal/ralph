@@ -5,14 +5,11 @@
 #include "Base.h"
 #include "FunctionTraits.h"
 
-namespace Ralph
-{
-namespace Common
-{
-namespace Functional
-{
-namespace ContainerTraitsDetails
-{
+namespace Ralph {
+namespace Common {
+namespace Functional {
+
+namespace ContainerTraitsDetails {
 DEFINE_HAS_MEMBER(push_back, push_back);
 DEFINE_HAS_MEMBER(push_front, push_front);
 DEFINE_HAS_MEMBER(insert, insert);

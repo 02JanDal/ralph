@@ -4,6 +4,10 @@
 
 #include <git2.h>
 
+namespace Ralph {
+namespace ClientLib {
+namespace Git {
+
 void initGit()
 {
 	static bool haveInitialized = false;
@@ -201,7 +205,7 @@ GitCredentialResponse GitCredentialResponse::createInvalid()
 }
 GitCredentialResponse GitCredentialResponse::createError()
 {
-	return GitCredentialResponse(static_cast<git_cred *>(1));
+	return GitCredentialResponse();
 }
 
 int GitRepo::credentialsCallback(git_cred **out, const char *url, const char *usernameFromUrl, const unsigned int allowedTypes, void *payload)
@@ -228,9 +232,7 @@ int GitRepo::credentialsCallback(git_cred **out, const char *url, const char *us
 	const GitCredentialQuery query = GitCredentialQuery(types, QString::fromLocal8Bit(url), QString::fromLocal8Bit(usernameFromUrl));
 	const GitCredentialResponse response = m_credentialsFunc(query);
 	if (!response.result()) {
-		return 1;
-	} else if (response.result() == (git_cred *)1) {
-		return GIT_EUSER;
+		return response.isError() ? GIT_EUSER : 1;
 	} else {
 		*out = response.result();
 		return 0;
@@ -239,3 +241,7 @@ int GitRepo::credentialsCallback(git_cred **out, const char *url, const char *us
 
 GitCredentialQuery::GitCredentialQuery(const GitCredentialQuery::Types types, const QUrl &url, const QString &usernameDefault)
 	: m_types(types), m_url(url), m_usernameFromUrl(usernameDefault) {}
+
+}
+}
+}

@@ -21,7 +21,7 @@ add_subdirectory(common)
 add_subdirectory(clientlib)
 add_subdirectory(client)
 if(WITH_INTEGRATION)
-     add_subdirectory(integration)
+	add_subdirectory(integration)
 endif()
 
 set_package_properties(Qt5Core PROPERTIES URL http://qt.io/ DESCRIPTION "Core non-graphical classes used by other modules." TYPE REQUIRED)

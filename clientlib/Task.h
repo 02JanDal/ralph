@@ -3,8 +3,12 @@
 #include <QFutureInterface>
 #include <QFuture>
 #include <QThreadPool>
+#include <memory>
 
 #include "Functional.h"
+
+namespace Ralph {
+namespace ClientLib {
 
 class WrappedException : public QException
 {
@@ -203,4 +207,7 @@ template <typename A, typename B>
 auto operator+(const std::shared_ptr<Task<A>> &a, const std::shared_ptr<Task<B>> &b)
 {
 	return createTask([a, b](Notifier notifier) { return notifier.await(a) + notifier.await(b); });
+}
+
+}
 }

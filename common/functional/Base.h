@@ -2,12 +2,9 @@
 
 #include <functional>
 
-namespace Ralph
-{
-namespace Common
-{
-namespace Functional
-{
+namespace Ralph {
+namespace Common {
+namespace Functional {
 template <typename...> using void_t = void;
 
 #define DEFINE_HAS_MEMBER_HELPER(name, member)			\
