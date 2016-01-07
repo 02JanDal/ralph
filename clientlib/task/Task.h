@@ -96,7 +96,9 @@ public:
 
 	void status(const QString &status) const;
 	void progressCurrent(const int current) const;
+	void progressCurrent(const std::size_t current) const { progressCurrent(static_cast<int>(current)); }
 	void progressTotal(const int total) const;
+	void progressTotal(const std::size_t total) const { progressTotal(static_cast<int>(total)); }
 
 	template <typename T>
 	inline T await(const std::shared_ptr<Task<T>> &task)
@@ -187,7 +189,8 @@ template <typename Func>
 auto createTask(Func &&func)
 {
 	using Type = typename Ralph::Common::Functional::FunctionTraits<Func>::ReturnType;
-	return std::static_pointer_cast<Task<Type>>(std::make_shared<LambdaTask<Func, Type>>(std::forward<Func>(func)));
+	auto lambdatask = std::make_shared<LambdaTask<Func, Type>>(std::forward<Func>(func));
+	return std::static_pointer_cast<Task<Type>>(lambdatask);
 }
 
 template <typename T>

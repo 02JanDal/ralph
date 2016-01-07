@@ -5,8 +5,8 @@
 #include <QDir>
 
 #include "Package.h"
-#include "VersionRequirement.h"
-#include "Task.h"
+#include "Version.h"
+#include "task/Task.h"
 
 namespace Ralph {
 namespace ClientLib {

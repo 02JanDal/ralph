@@ -208,7 +208,7 @@ GitCredentialResponse GitCredentialResponse::createError()
 	return GitCredentialResponse();
 }
 
-int GitRepo::credentialsCallback(git_cred **out, const char *url, const char *usernameFromUrl, const unsigned int allowedTypes, void *payload)
+int GitRepo::credentialsCallback(git_cred **out, const char *url, const char *usernameFromUrl, const unsigned int allowedTypes, void *)
 {
 	GitCredentialQuery::Types types;
 	if (allowedTypes & GIT_CREDTYPE_DEFAULT) {

@@ -2,22 +2,24 @@
 
 #include <QObject>
 #include <QVector>
+#include <memory>
 
-#include "VersionRequirement.h"
+#include "Version.h"
 
 class QJsonDocument;
 
 namespace Ralph {
 namespace ClientLib {
 class PackageSource;
+class PackageInstallationCandidate;
+using RequirementPtr = std::shared_ptr<class Requirement>;
 
 class PackageDependency : public QObject
 {
 	Q_OBJECT
 	Q_PROPERTY(QString package READ package WRITE setPackage NOTIFY packageChanged)
 	Q_PROPERTY(VersionRequirement *version READ version WRITE setVersion NOTIFY versionChanged)
-	Q_PROPERTY(QVector<QString> operatingSystems READ operatingSystems WRITE setOperatingSystems NOTIFY operatingSystemsChanged)
-	Q_PROPERTY(QVector<QString> configurations READ configurations WRITE setConfigurations NOTIFY configurationsChanged)
+	Q_PROPERTY(RequirementPtr requirements READ requirements WRITE setRequirements NOTIFY requirementsChanged)
 	Q_PROPERTY(bool optional READ isOptional WRITE setOptional NOTIFY optionalChanged)
 	Q_PROPERTY(PackageSource *source READ source WRITE setSource NOTIFY sourceChanged)
 
@@ -31,11 +33,8 @@ public:
 	VersionRequirement *version() const { return m_version; }
 	void setVersion(VersionRequirement *version);
 
-	QVector<QString> operatingSystems() const { return m_os; }
-	void setOperatingSystems(const QVector<QString> &os);
-
-	QVector<QString> configurations() const { return m_configurations; }
-	void setConfigurations(const QVector<QString> &configurations);
+	RequirementPtr requirements() const { return m_requirements; }
+	void setRequirements(const RequirementPtr &requirements);
 
 	bool isOptional() const { return m_optional; }
 	void setOptional(const bool optional);
@@ -46,15 +45,14 @@ public:
 signals:
 	void packageChanged(const QString &package);
 	void versionChanged(VersionRequirement *version);
-	void operatingSystemsChanged(const QVector<QString> &os);
-	void configurationsChanged(const QVector<QString> &configurations);
+	void requirementsChanged(const RequirementPtr &os);
 	void optionalChanged(const bool optional);
 	void sourceChanged(const PackageSource *source);
 
 private:
 	QString m_package;
 	VersionRequirement *m_version;
-	QVector<QString> m_os;
+	RequirementPtr m_requirements;
 	QVector<QString> m_configurations;
 	bool m_optional;
 	PackageSource *m_source;
@@ -66,6 +64,7 @@ class Package : public QObject
 	Q_PROPERTY(QString name READ name WRITE setName NOTIFY nameChanged)
 	Q_PROPERTY(Version version READ version WRITE setVersion NOTIFY versionChanged)
 	Q_PROPERTY(QVector<PackageDependency *> dependencies READ dependencies WRITE setDependencies NOTIFY dependenciesChanged)
+	Q_PROPERTY(QVector<PackageInstallationCandidate *> installationCandidates READ installationCandidates WRITE setInstallationCandidates NOTIFY installationCandidatesChanged)
 
 public:
 	explicit Package(QObject *parent = nullptr);
@@ -79,17 +78,23 @@ public:
 	QVector<PackageDependency *> dependencies() const { return m_dependencies; }
 	void setDependencies(const QVector<PackageDependency *> &dependencies);
 
+	virtual QJsonObject toJson() const;
 	static const Package *fromJson(const QJsonDocument &doc);
+
+	QVector<PackageInstallationCandidate *> installationCandidates() const { return m_installationCandidates; }
+	void setInstallationCandidates(QVector<PackageInstallationCandidate *> installationCandidates);
 
 signals:
 	void nameChanged(const QString &name);
 	void versionChanged(const Version &version);
 	void dependenciesChanged(const QVector<PackageDependency *> &dependencies);
+	void installationCandidatesChanged(QVector<PackageInstallationCandidate *> installationCandidates);
 
 private:
 	QString m_name;
 	Version m_version;
 	QVector<PackageDependency *> m_dependencies;
+	QVector<PackageInstallationCandidate *> m_installationCandidates;
 };
 
 }

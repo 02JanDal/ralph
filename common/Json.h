@@ -11,6 +11,7 @@
 #include <QVector>
 
 #include "Exception.h"
+#include "Functional.h"
 
 namespace Json
 {
@@ -34,30 +35,28 @@ QJsonDocument ensureDocument(const QString &filename);
 QJsonObject ensureObject(const QJsonDocument &doc, const QString &what = "Document");
 QJsonArray ensureArray(const QJsonDocument &doc, const QString &what = "Document");
 
-template<typename T>
-QJsonValue toJson(const T &t)
-{
-	return QJsonValue(t);
+namespace detail {
+template <typename T> QJsonValue toJsonHelper(const T *t, std::true_type) { return t->toJson(); }
+template <typename T> QJsonValue toJsonHelper(const T &t, std::false_type) { return QJsonValue(t); }
 }
-template<>
-QJsonValue toJson<QUrl>(const QUrl &url);
-template<>
-QJsonValue toJson<QByteArray>(const QByteArray &data);
-template<>
-QJsonValue toJson<QDateTime>(const QDateTime &datetime);
-template<>
-QJsonValue toJson<QDir>(const QDir &dir);
-template<>
-QJsonValue toJson<QUuid>(const QUuid &uuid);
-template<>
-QJsonValue toJson<QVariant>(const QVariant &variant);
+
+template <typename T> QJsonValue toJson(const T &t)
+{
+	return detail::toJsonHelper(t, typename std::is_pointer<T>::type());
+}
+//template <typename T> QJsonValue toJson(const T &value) { return value->toJson(); }
+template <> QJsonValue toJson<QUrl>(const QUrl &url);
+template <> QJsonValue toJson<QByteArray>(const QByteArray &data);
+template <> QJsonValue toJson<QDateTime>(const QDateTime &datetime);
+template <> QJsonValue toJson<QDir>(const QDir &dir);
+template <> QJsonValue toJson<QUuid>(const QUuid &uuid);
+template <> QJsonValue toJson<QVariant>(const QVariant &variant);
 
 template<typename T>
-QJsonArray toJsonArray(const QList<T> &container)
+QJsonArray toJsonArray(const QVector<T> &container)
 {
 	QJsonArray array;
-	for (const T item : container)
-	{
+	for (const T &item : container) {
 		array.append(toJson<T>(item));
 	}
 	return array;

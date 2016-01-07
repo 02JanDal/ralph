@@ -11,6 +11,7 @@ set(SRC
 	functional/Tap.h
 	functional/Collection.h
 	functional/Functions.h
+	functional/Eval.h
 
 	Json.h
 	Json.cpp
@@ -20,6 +21,12 @@ set(SRC
 	Exception.cpp
 	BaseConfigObject.h
 	BaseConfigObject.cpp
+
+	CommandLineParser.h
+	CommandLineParser_p.h
+	CommandLineParser.cpp
+	TermUtil.h
+	TermUtil.cpp
 
 	Optional.h
 )

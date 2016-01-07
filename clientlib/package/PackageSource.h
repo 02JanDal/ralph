@@ -54,7 +54,7 @@ signals:
 
 private:
 	const SourceType m_type;
-	QString m_name;\
+	QString m_name;
 	QDir m_basePath;
 };
 

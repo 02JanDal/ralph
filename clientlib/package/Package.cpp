@@ -3,6 +3,8 @@
 #include "Json.h"
 #include "Functional.h"
 #include "PackageSource.h"
+#include "PackageInstallationCandidate.h"
+#include "Requirement.h"
 
 namespace Ralph {
 using namespace Common;
@@ -28,18 +30,11 @@ void PackageDependency::setVersion(VersionRequirement *version)
 		emit versionChanged(m_version);
 	}
 }
-void PackageDependency::setConfigurations(const QVector<QString> &configurations)
+void PackageDependency::setRequirements(const RequirementPtr &requirements)
 {
-	if (configurations != m_configurations) {
-		m_configurations = configurations;
-		emit configurationsChanged(m_configurations);
-	}
-}
-void PackageDependency::setOperatingSystems(const QVector<QString> &os)
-{
-	if (os != m_os) {
-		m_os = os;
-		emit operatingSystemsChanged(m_os);
+	if (requirements != m_requirements) {
+		m_requirements = requirements;
+		emit requirementsChanged(m_requirements);
 	}
 }
 void PackageDependency::setOptional(const bool optional)
@@ -83,6 +78,42 @@ void Package::setDependencies(const QVector<PackageDependency *> &dependencies)
 		emit dependenciesChanged(m_dependencies);
 	}
 }
+void Package::setInstallationCandidates(QVector<PackageInstallationCandidate *> installationCandidates)
+{
+	if (m_installationCandidates == installationCandidates) {
+		return;
+	}
+
+	m_installationCandidates = installationCandidates;
+	emit installationCandidatesChanged(installationCandidates);
+}
+
+QJsonObject Package::toJson() const
+{
+	QJsonObject obj;
+	obj.insert("name", name());
+	obj.insert("version", version().toString());
+	if (!installationCandidates().isEmpty()) {
+		obj.insert("installation", Json::toJsonArray(installationCandidates()));
+	}
+	if (!dependencies().isEmpty()) {
+		obj.insert("dependencies", Json::toJsonArray(Functional::map(dependencies(), [](const PackageDependency *dep)
+		{
+			QJsonObject depObj;
+			depObj.insert("name", dep->package());
+			if (dep->version()->isValid()) {
+				depObj.insert("version", dep->version()->toString());
+			}
+			depObj.insert("optional", dep->isOptional());
+			depObj.insert("requirements", dep->requirements()->toJson());
+			if (dep->source()) {
+				depObj.insert("source", dep->source()->toJson());
+			}
+			return depObj;
+		})));
+	}
+	return obj;
+}
 
 const Package *Package::fromJson(const QJsonDocument &doc)
 {
@@ -93,39 +124,21 @@ const Package *Package::fromJson(const QJsonDocument &doc)
 
 		package->setName(ensureString(root, "name"));
 		package->setVersion(Version::fromString(ensureString(root, "version")));
-		package->setDependencies(Functional::map(ensureIsArrayOf<QJsonObject>(root, "dependencies"), [package](const QJsonObject &obj)
+		package->setInstallationCandidates(Functional::map(ensureIsArrayOf<QJsonObject>(root, "installation", QVector<QJsonObject>()), [package](const QJsonObject &obj)
+		{
+			return PackageInstallationCandidate::fromJson(obj, package);
+		}));
+		package->setDependencies(Functional::map(ensureIsArrayOf<QJsonObject>(root, "dependencies", QVector<QJsonObject>()), [package](const QJsonObject &obj)
 		{
 			PackageDependency *dep = new PackageDependency(package);
 			dep->setPackage(ensureString(obj, "name"));
 
 			if (obj.contains("version")) {
-				const QString v = ensureString(obj, "version");
-				VersionRequirement *version = new VersionRequirement(dep);
-				if (v.startsWith(">=")) {
-					version->setVersion(Version::fromString(v.mid(2)));
-					version->setType(VersionRequirement::GreaterEqual);
-				} else if (v.startsWith(">")) {
-					version->setVersion(Version::fromString(v.mid(1)));
-					version->setType(VersionRequirement::Greater);
-				} else if (v.startsWith("<=")) {
-					version->setVersion(Version::fromString(v.mid(2)));
-					version->setType(VersionRequirement::LessEqual);
-				} else if (v.startsWith("<")) {
-					version->setVersion(Version::fromString(v.mid(1)));
-					version->setType(VersionRequirement::Less);
-				} else if (v.startsWith("==")) {
-					version->setVersion(Version::fromString(v.mid(2)));
-					version->setType(VersionRequirement::Equal);
-				} else if (v.startsWith("!=")) {
-					version->setVersion(Version::fromString(v.mid(2)));
-					version->setType(VersionRequirement::NonEqual);
-				}
-				dep->setVersion(version);
+				dep->setVersion(VersionRequirement::fromString(ensureString(obj, "version"), dep));
 			}
 
 			dep->setOptional(ensureBoolean(obj, QStringLiteral("optional"), false));
-			dep->setOperatingSystems(ensureIsArrayOf<QString>(obj, "os", QVector<QString>()));
-			dep->setConfigurations(ensureIsArrayOf<QString>(obj, "config", QVector<QString>()));
+			dep->setRequirements(std::make_shared<AndRequirement>(AndRequirement::fromJson(ensureArray(obj, "requirements", QJsonArray()))));
 
 			if (obj.contains("source")) {
 				dep->setSource(PackageSource::fromJson(obj.value("source"), dep));

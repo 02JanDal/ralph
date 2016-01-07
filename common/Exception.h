@@ -16,11 +16,9 @@ private:
 	QString m_message;
 };
 
-#define DECLARE_EXCEPTION(name)                                                                \
-	class name##Exception : public ::Exception                                                 \
-	{                                                                                          \
-	public:                                                                                    \
-		name##Exception(const QString &message) : Exception(message)                           \
-		{                                                                                      \
-		}                                                                                      \
+#define DECLARE_EXCEPTION(name)                 \
+	class name##Exception : public ::Exception  \
+	{                                           \
+	public:                                     \
+		using ::Exception::Exception;           \
 	}

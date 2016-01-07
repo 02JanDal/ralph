@@ -2,25 +2,38 @@
 
 #include <QString>
 
-#include "PackageDatabase.h"
+#include "package/PackageDatabase.h"
 
 namespace Ralph {
 using namespace ClientLib;
+
+namespace Common {
+namespace CommandLine {
+class Result;
+}
+}
 
 namespace Client {
 
 class State
 {
 public:
-	int updatePackageDB();
-	int installForProject();
-	int removePackage(const QString &package, const QString &version);
-	int installPackage(const QString &package, const QString &version);
-	int checkPackage(const QString &package, const QString &version);
+	explicit State();
 
 	void setDir(const QString &dir);
 
-private:
+	void removePackage(const Common::CommandLine::Result &result);
+	void installPackage(const Common::CommandLine::Result &result);
+	void checkPackage(const Common::CommandLine::Result &result);
+
+	void verifyProject();
+	void newProject(const Common::CommandLine::Result &result);
+
+	void updateSources(const Common::CommandLine::Result &result);
+	void addSource(const Common::CommandLine::Result &result);
+	void removeSource(const Common::CommandLine::Result &result);
+
+protected:
 	Task<PackageDatabase *>::Ptr createDB();
 
 	PackageDatabase *m_db = nullptr;

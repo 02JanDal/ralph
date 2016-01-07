@@ -1,3 +1,4 @@
 #pragma once
 
 #cmakedefine Ralph_DEFAULT_REPO "@Ralph_DEFAULT_REPO@"
+#define Ralph_CLIENT_VERSION "@ralph_VERSION@"

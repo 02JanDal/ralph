@@ -46,7 +46,7 @@ static auto InsertionIterator(Type &container, enif_t<HasMemberFunction_insert<T
 }
 
 template <template<typename...> class Cont, typename... Args>
-class ContainerTraits
+class ContainerTraitsImpl
 {
 	template <bool Condition, typename T = void>
 	using enif_t = std::enable_if_t<Condition, T>;
@@ -131,7 +131,7 @@ template <template<typename...> class Cont, typename... Args>
 class ContainerTraits<Cont<Args...>>
 		: public std::conditional_t<ContainerTraitsDetails::HasMember_second<Cont<Args...>>::value,
 									ContainerTraits<void>,
-									ContainerTraitsDetails::ContainerTraits<Cont, Args...>>
+									ContainerTraitsDetails::ContainerTraitsImpl<Cont, Args...>>
 {
 };
 

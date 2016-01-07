@@ -6,49 +6,60 @@
 
 #include <iostream>
 
-#include "PackageDatabase.h"
+#include "task/Network.h"
 #include "config.h"
 
 namespace Ralph {
 namespace Client {
 
-int State::updatePackageDB()
+State::State()
 {
-	std::cout << "Updating package database(s). This might take a while...\n";
-	try {
-		Task<void>::Ptr task = await(createDB())->update();
-		task->waitForFinished();
-		std::cout << "Finished successfully\n";
-		return 0;
-	} catch (QException &e) {
-		std::cerr << "Failure: " << e.what() << '\n';
-		return 1;
-	}
+	Network::init();
 }
 
-int State::installForProject()
+void State::removePackage(const Common::CommandLine::Result &result)
 {
-	return 1;
+	Q_UNUSED(result)
 }
-
-int State::removePackage(const QString &package, const QString &version)
+void State::installPackage(const Common::CommandLine::Result &result)
 {
-	return 1;
+	Q_UNUSED(result)
 }
-
-int State::installPackage(const QString &package, const QString &version)
+void State::checkPackage(const Common::CommandLine::Result &result)
 {
-	return 1;
-}
-
-int State::checkPackage(const QString &package, const QString &version)
-{
-	return 1;
+	Q_UNUSED(result)
 }
 
 void State::setDir(const QString &dir)
 {
 	m_dir = dir;
+}
+
+void State::verifyProject()
+{
+}
+void State::newProject(const Common::CommandLine::Result &result)
+{
+	Q_UNUSED(result)
+}
+
+void State::updateSources(const Common::CommandLine::Result &result)
+{
+	Q_UNUSED(result)
+	std::cout << "Updating package database(s). This might take a while...\n";
+	Task<void>::Ptr task = await(createDB())->update();
+	await(task);
+	std::cout << "Finished successfully\n";
+}
+
+void State::addSource(const Common::CommandLine::Result &result)
+{
+	Q_UNUSED(result)
+}
+
+void State::removeSource(const Common::CommandLine::Result &result)
+{
+	Q_UNUSED(result)
 }
 
 Task<PackageDatabase *>::Ptr State::createDB()
@@ -84,7 +95,7 @@ Task<PackageDatabase *>::Ptr State::createDB()
 			}
 
 			if (!m_dir.isNull()) {
-				m_db = await(PackageDatabase::get(m_dir, {global}));
+				m_db = notifier.await(PackageDatabase::get(m_dir, {global}));
 				std::cout << "Using database: project\n";
 			} else {
 				m_db = global;

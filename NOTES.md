@@ -15,6 +15,12 @@
 	* `git`: A single package that's stored in a git repo. Instead of a version a tag/branch/commitish can be specified
 	* `github`: As `git`, but automatically fills in the git URL given a Github user/repo pair
 	* Possible future extension: More VCS types, like SVN, Mercurial etc. (probably not)
+* Scripted installations
+	* Secure
+		* No giving an unknown script root access
+	* Probably ChaiScript or Lua
+	* All file system access jailed into the installation directory
+	* Special user permission for anything else
 
 # Usage
 

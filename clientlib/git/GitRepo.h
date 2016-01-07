@@ -5,9 +5,9 @@
 #include <QUrl>
 #include <functional>
 
+#include "task/Task.h"
 #include "Functional.h"
 #include "GitException.h"
-#include "Task.h"
 #include "Optional.h"
 
 struct git_repository;
@@ -83,7 +83,6 @@ public:
 	Q_FLAG(Types)
 
 	explicit GitCredentialQuery(const Types types, const QUrl &url, const QString &usernameDefault);
-	virtual ~GitCredentialQuery() {}
 
 	Types allowedTypes() const { return m_types; }
 

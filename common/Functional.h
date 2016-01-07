@@ -9,3 +9,4 @@
 #include "functional/Tap.h"
 #include "functional/Collection.h"
 #include "functional/Functions.h"
+#include "functional/Eval.h"

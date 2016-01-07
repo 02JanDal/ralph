@@ -5,6 +5,7 @@
 #include "Base.h"
 #include "ContainerTraits.h"
 #include "FunctionTraits.h"
+#include "Eval.h"
 
 namespace Ralph {
 namespace Common {
@@ -13,6 +14,8 @@ namespace Functional {
 template <typename OutputContainer, typename InputContainer, typename Func>
 auto map2(const InputContainer &input, Func &&func, std::enable_if_t<FunctionTraits<Func>::arity == 1>* = nullptr)
 {
+	static_assert(ContainerTraits<InputContainer>::IsContainer::value, "error: the input is not a container");
+	static_assert(ContainerTraits<OutputContainer>::IsContainer::value, "error: the output is not a container");
 	static_assert(ContainerTraits<InputContainer>::arity >= FunctionTraits<Func>::arity, "error: func needs an arity equal to or less than the input container");
 	OutputContainer output;
 	std::transform(std::begin(input), std::end(input), ContainerTraits<OutputContainer>::InsertionIterator(output), std::forward<Func>(func));
@@ -21,6 +24,8 @@ auto map2(const InputContainer &input, Func &&func, std::enable_if_t<FunctionTra
 template <typename OutputContainer, typename InputContainer, typename Func>
 auto map2(const InputContainer &input, Func &&func, std::enable_if_t<FunctionTraits<Func>::arity == 2>* = nullptr)
 {
+	static_assert(ContainerTraits<InputContainer>::IsContainer::value, "error: the input is not a container");
+	static_assert(ContainerTraits<OutputContainer>::IsContainer::value, "error: the output is not a container");
 	static_assert(ContainerTraits<InputContainer>::arity >= FunctionTraits<Func>::arity, "error: func needs an arity equal to or less than the input container");
 
 	// special check for this overload
@@ -48,6 +53,13 @@ auto map(const Container &input, Func &&func,
 	using FuncRet = typename FunctionTraits<Func>::ReturnType;
 	using OutputContainer = typename ContainerTraits<Container>::template ContainerType<typename FuncRet::first_type, typename FuncRet::second_type>;
 	return map2<OutputContainer, Container, Func>(input, std::forward<Func>(func));
+}
+template <typename Container, typename Func>
+auto map(const Container &input, Func &&func,
+		 std::enable_if_t<FunctionTraits<Func>::arity == 0>* = nullptr)
+{
+	using Type = typename ContainerTraits<Container>::InsertType;
+	return map<Container>(input, [&func](const Type &val) { return eval(std::forward<Func>(func), val); });
 }
 
 template <typename OutputContainer, typename InputContainer, typename Func>
