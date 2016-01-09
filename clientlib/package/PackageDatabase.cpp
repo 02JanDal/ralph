@@ -15,13 +15,13 @@ PackageDatabase::PackageDatabase(const QDir &dir, const QVector<PackageDatabase 
 {
 }
 
-Task<PackageDatabase *>::Ptr PackageDatabase::get(const QDir &dir, const QVector<PackageDatabase *> inherits)
+Future<PackageDatabase *> PackageDatabase::get(const QDir &dir, const QVector<PackageDatabase *> inherits)
 {
-	return createTask([dir, inherits](Notifier notifier)
+	return async([dir, inherits](Notifier notifier)
 	{
 		if (!dir.exists()) {
 			if (!dir.mkpath(dir.absolutePath())) {
-				throw Exception("Unable to create directory for package database: " + dir.absolutePath());
+				throw Exception("Unable to create directory for package database: %1" % dir.absolutePath());
 			}
 		}
 
@@ -38,17 +38,17 @@ bool PackageDatabase::isReadonly() const
 	return !QFileInfo(m_dir.absolutePath()).isWritable();
 }
 
-Task<void>::Ptr PackageDatabase::update()
+Future<void> PackageDatabase::update()
 {
-	return createTask([this](Notifier notifier)
+	return async([this](Notifier notifier)
 	{
 		Q_UNUSED(notifier)
 	});
 }
 
-Task<void>::Ptr PackageDatabase::read()
+Future<void> PackageDatabase::read()
 {
-	return createTask([this](Notifier notifier)
+	return async([this](Notifier notifier)
 	{
 		Q_UNUSED(notifier)
 		using namespace Json;
@@ -60,9 +60,9 @@ Task<void>::Ptr PackageDatabase::read()
 	});
 }
 
-Task<void>::Ptr PackageDatabase::build()
+Future<void> PackageDatabase::build()
 {
-	return {};
+	return async([this]() {});
 }
 
 const Package *PackageDatabase::getPackage(const QString &name, const Version &version) const
@@ -90,21 +90,21 @@ QVector<const Package *> PackageDatabase::findPackages(const QString &name, Vers
 	return out;
 }
 
-Task<void>::Ptr PackageDatabase::registerPackageSource(PackageSource *source)
+Future<void> PackageDatabase::registerPackageSource(PackageSource *source)
 {
 	m_sources.append(source);
 	source->setBasePath(m_dir.absoluteFilePath("sources/" + source->name()));
 	source->setParent(this);
-	return createTask([this](Notifier notifier)
+	return async([this](Notifier notifier)
 	{
 		notifier.await(save());
 		notifier.await(build());
 	});
 }
 
-Task<void>::Ptr PackageDatabase::save()
+Future<void> PackageDatabase::save()
 {
-	return createTask([]() {});
+	return async([]() {});
 }
 
 }

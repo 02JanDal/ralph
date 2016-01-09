@@ -3,172 +3,137 @@
 #include <QFutureInterface>
 #include <QFuture>
 #include <QThreadPool>
-#include <memory>
 
 #include "Functional.h"
+#include "Exception.h"
+#include "Future.h"
 
 namespace Ralph {
 namespace ClientLib {
-
-class WrappedException : public QException
-{
-	const char *m_msg;
-public:
-	explicit WrappedException(const char *msg)
-		: m_msg(strdup(msg)) {}
-
-	const char *what() const noexcept override { return m_msg; }
-
-	void raise() const override { throw *this; }
-	QException *clone() const override { return new WrappedException(*this); }
-};
-
-class BaseStatusObject : public QObject
-{
-	Q_OBJECT
-public:
-	explicit BaseStatusObject(QObject *parent = nullptr) : QObject(parent) {}
-
-signals:
-	void status(const QString &str);
-};
+template <typename> class Task;
+namespace Private {
+template <typename T>
+inline void runAndReportResult(Task<T> *task);
+template <>
+inline void runAndReportResult<void>(Task<void> *task);
+}
 
 template <typename T>
-class Task : public BaseStatusObject, public QFutureInterface<T>, public QRunnable
+class Task : public std::enable_shared_from_this<Task<T>>
 {
-	class Notifier *m_notifier;
+	std::launch m_policy;
 public:
-	using Ptr = std::shared_ptr<Task<T>>;
+	explicit Task(std::launch policy) : m_policy(policy) {}
+	virtual ~Task() {}
 
-	QFuture<T> start()
+	Future<T> start()
 	{
-		return start(QThreadPool::globalInstance());
-	}
-	QFuture<T> start(QThreadPool *pool)
-	{
-		this->setThreadPool(pool);
-		this->setRunnable(this);
-		this->reportStarted();
-		QFuture<T> future = this->future();
-		pool->start(this, 0);
-		return future;
-	}
-
-	virtual void run() override
-	{
-		if (this->isCanceled()) {
-			this->reportFinished();
-			return;
-		}
-		try {
-			Ralph::Common::Functional::static_if<std::is_same<void, T>::value>([this](auto f) {
-				f(this)->runImpl();
-			}).else_([this](auto f) {
-				f(this)->reportResult(f(this)->runImpl(), -1);
-			});
-		} catch (QException &e) {
-			this->reportException(e);
-		} catch (std::exception &e) {
-			this->reportException(WrappedException(e.what()));
-		} catch (...) {
-			this->reportException(QUnhandledException());
-		}
-
-		this->reportFinished();
+		m_promise.prime(std::async(m_policy, [this]()
+		{
+			try {
+				m_promise.reportStarted();
+				Private::runAndReportResult(this);
+				m_promise.reportFinished();
+			} catch (...) {
+				m_promise.reportException(std::current_exception());
+			}
+		}));
+		return future();
 	}
 
-	Notifier *notifier() const { return m_notifier; }
+	Future<T> future() const { return m_promise.future(); }
 
 protected:
-	explicit Task();
-	virtual T runImpl() = 0;
+	friend void Private::runAndReportResult<T>(Task<T> *);
+	virtual T run() = 0;
+
+	void reportStatus(const QString &status) { m_promise.reportStatus(status); }
+	void reportProgress(const std::size_t current, const std::size_t total) { m_promise.reportProgress(current, total); }
+	void keepAlive(const std::shared_ptr<Task<T>> &task) { m_promise.addTask(task); }
+
+private:
+	friend class Notifier;
+	Promise<T> m_promise;
 };
-template <typename T>
-using TaskPtr = typename Task<T>::Ptr;
 
 class Notifier
 {
-	BaseStatusObject *m_status;
-	QFutureInterfaceBase *m_future;
-	Notifier *m_delegateTo = nullptr;
+	Private::BasePromise m_promise;
 public:
-	explicit Notifier(BaseStatusObject *status, QFutureInterfaceBase *future);
+	template <typename T>
+	explicit Notifier(Task<T> *task)
+		: m_promise(task->m_promise) {}
 
-	void status(const QString &status) const;
-	void progressCurrent(const int current) const;
-	void progressCurrent(const std::size_t current) const { progressCurrent(static_cast<int>(current)); }
-	void progressTotal(const int total) const;
-	void progressTotal(const std::size_t total) const { progressTotal(static_cast<int>(total)); }
+	void status(const QString &status) { m_promise.reportStatus(status); }
+	void progress(const std::size_t current, const std::size_t total) { m_promise.reportProgress(current, total); }
 
 	template <typename T>
-	inline T await(const std::shared_ptr<Task<T>> &task)
+	inline T await(const Future<T> &future)
 	{
-		task->notifier()->m_delegateTo = this;
-		QFuture<T> future = task->future();
-		future.waitForFinished();
-		task->notifier()->m_delegateTo = nullptr;
-		return future.result();
+		return m_promise.await(future);
 	}
 };
 template <>
-inline void Notifier::await(const TaskPtr<void> &task)
+inline void Notifier::await<void>(const Future<void> &future)
 {
-	task->notifier()->m_delegateTo = this;
-	task->future().waitForFinished();
-	task->notifier()->m_delegateTo = nullptr;
+	m_promise.await(future);
 }
 
+namespace Private {
 template <typename T>
-Task<T>::Task()
+inline void runAndReportResult(Task<T> *task)
 {
-	m_notifier = new Notifier(this, this);
+	task->m_promise.reportResult(task->run());
+}
+template <>
+inline void runAndReportResult<void>(Task<void> *task)
+{
+	task->run();
 }
 
-namespace details
-{
-using namespace Ralph::Common::Functional;
+using Ralph::Common::Functional::FunctionTraits;
 
-template <typename Func, typename T>
-std::enable_if_t<FunctionTraits<Func>::arity == 0 && std::is_same<typename FunctionTraits<Func>::ReturnType, void>::value>
-call(Func &&func, Notifier &&)
+template <typename Func>
+std::enable_if_t<FunctionTraits<Func>::arity == 0, void>
+callWithoutReturn(Func &&func, Notifier &&)
 {
 	func();
 }
-template <typename Func, typename T>
-std::enable_if_t<FunctionTraits<Func>::arity == 0 && !std::is_same<typename FunctionTraits<Func>::ReturnType, void>::value>
-call(Func &&func, Notifier &&)
-{
-	return func();
-}
-template <typename Func, typename T>
-std::enable_if_t<FunctionTraits<Func>::arity == 1 && std::is_same<typename FunctionTraits<Func>::ReturnType, void>::value,
-	typename FunctionTraits<Func>::ReturnType>
-call(Func &&func, Notifier &&notifier)
+template <typename Func>
+std::enable_if_t<FunctionTraits<Func>::arity == 1, void>
+callWithoutReturn(Func &&func, Notifier &&notifier)
 {
 	func(std::forward<Notifier>(notifier));
 }
 template <typename Func, typename T>
-std::enable_if_t<FunctionTraits<Func>::arity == 1 && !std::is_same<typename FunctionTraits<Func>::ReturnType, void>::value,
-	typename FunctionTraits<Func>::ReturnType>
-call(Func &&func, Notifier &&notifier)
+std::enable_if_t<FunctionTraits<Func>::arity == 0, T>
+callWithReturn(Func &&func, Notifier &&)
+{
+	return func();
+}
+template <typename Func, typename T>
+std::enable_if_t<FunctionTraits<Func>::arity == 1, T>
+callWithReturn(Func &&func, Notifier &&notifier)
 {
 	return func(std::forward<Notifier>(notifier));
 }
-}
 
-template <typename Func, typename T>
+template <typename T, typename Func>
 class LambdaTask : public Task<T>
 {
 	Func m_func;
-
 public:
-	explicit LambdaTask(Func &&func)
-		: Task<T>(), m_func(std::forward<Func>(func)) {}
-
-	T runImpl() override
+	explicit LambdaTask(std::launch policy, Func &&func) : Task<T>(policy), m_func(std::forward<Func>(func)) {}
+	static std::shared_ptr<LambdaTask<T, Func>> make(std::launch policy, Func &&func)
 	{
-		return details::call<Func, T>(std::forward<Func>(m_func), std::forward<Notifier>(*this->notifier()));
-		//return m_func(*this->notifier());
+		std::shared_ptr<LambdaTask<T, Func>> ptr = std::make_shared<LambdaTask<T, Func>>(policy, std::forward<Func>(func));
+		ptr->keepAlive(ptr);
+		return ptr;
+	}
+
+	T run()
+	{
+		return callWithReturn<Func, T>(std::move(m_func), Notifier(this));
 	}
 };
 template <typename Func>
@@ -176,40 +141,30 @@ class LambdaTask<void, Func> : public Task<void>
 {
 	Func m_func;
 public:
-	explicit LambdaTask(Func &&func)
-		: Task<void>(), m_func(std::forward<Func>(func)) {}
-
-	void runImpl() override
+	explicit LambdaTask(std::launch policy, Func &&func) : Task<void>(policy), m_func(std::forward<Func>(func)) {}
+	static std::shared_ptr<LambdaTask<void, Func>> make(std::launch policy, Func &&func)
 	{
-		m_func(*notifier());
+		std::shared_ptr<LambdaTask<void, Func>> ptr = std::make_shared<LambdaTask<void, Func>>(policy, std::forward<Func>(func));
+		ptr->keepAlive(ptr);
+		return ptr;
+	}
+
+	void run()
+	{
+		callWithoutReturn<Func>(std::move(m_func), Notifier(this));
 	}
 };
-
-template <typename Func>
-auto createTask(Func &&func)
-{
-	using Type = typename Ralph::Common::Functional::FunctionTraits<Func>::ReturnType;
-	auto lambdatask = std::make_shared<LambdaTask<Func, Type>>(std::forward<Func>(func));
-	return std::static_pointer_cast<Task<Type>>(lambdatask);
 }
 
-template <typename T>
-inline T await(const std::shared_ptr<Task<T>> &task)
+template <typename Func, typename Type = typename Common::Functional::FunctionTraits<Func>::ReturnType>
+Future<Type> async(Func &&func)
 {
-	QFuture<T> future = task->future();
-	future.waitForFinished();
-	return future.result();
+	return Private::LambdaTask<Type, Func>::make(std::launch::deferred, std::forward<Func>(func))->start();
 }
-template <>
-inline void await(const TaskPtr<void> &task)
+template <typename Func, typename Type = typename Common::Functional::FunctionTraits<Func>::ReturnType>
+Future<Type> async(std::launch policy, Func &&func)
 {
-	task->future().waitForFinished();
-}
-
-template <typename A, typename B>
-auto operator+(const std::shared_ptr<Task<A>> &a, const std::shared_ptr<Task<B>> &b)
-{
-	return createTask([a, b](Notifier notifier) { return notifier.await(a) + notifier.await(b); });
+	return Private::LambdaTask<Type, Func>::make(policy, std::forward<Func>(func))->start();
 }
 
 }

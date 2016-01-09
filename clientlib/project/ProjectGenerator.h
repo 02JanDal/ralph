@@ -13,7 +13,7 @@ class ProjectGenerator
 public:
 	explicit ProjectGenerator();
 
-	Task<Project *>::Ptr generate() const;
+	Future<Project *> generate() const;
 };
 }
 }

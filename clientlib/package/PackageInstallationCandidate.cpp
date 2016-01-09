@@ -35,7 +35,7 @@ PackageInstallationCandidate *PackageInstallationCandidate::fromJson(const QJson
 		SourcePackageInstallationCandidate *source = new SourcePackageInstallationCandidate(parent);
 		candidate = source;
 	} else {
-		throw Exception("Unknown package installation candidate type: " + typeString);
+		throw Exception("Unknown package installation candidate type: %1" % typeString);
 	}
 	candidate->setRequirement(std::make_unique<AndRequirement>(AndRequirement::fromJson(ensureArray(obj, "requirements", QJsonArray()))));
 	return candidate;
@@ -66,9 +66,9 @@ void BinaryPackageInstallationCandidate::setUrl(QUrl url)
 	emit urlChanged(url);
 }
 
-Task<void>::Ptr BinaryPackageInstallationCandidate::install(const Package *package, const QDir &cacheDir, const QDir &directory) const
+Future<void> BinaryPackageInstallationCandidate::install(const Package *package, const QDir &cacheDir, const QDir &directory) const
 {
-	return createTask([this, package, cacheDir, directory](Notifier notifier)
+	return async([this, package, cacheDir, directory](Notifier notifier)
 	{
 		const QString dlDestination = cacheDir.absoluteFilePath("downloads/%1/%2/%3").arg(package->name(), package->version().toString(), QFileInfo(m_url.path()).fileName());
 		FS::ensureExists(QFileInfo(dlDestination).dir());
@@ -89,12 +89,12 @@ SourcePackageInstallationCandidate::SourcePackageInstallationCandidate(QObject *
 {
 }
 
-Task<void>::Ptr SourcePackageInstallationCandidate::install(const Package *package, const QDir &cacheDir, const QDir &directory) const
+Future<void> SourcePackageInstallationCandidate::install(const Package *package, const QDir &cacheDir, const QDir &directory) const
 {
 	Q_UNUSED(package)
 	Q_UNUSED(cacheDir)
 	Q_UNUSED(directory)
-	return createTask([package, cacheDir, directory](Notifier notifier)
+	return async([package, cacheDir, directory](Notifier notifier)
 	{
 		Q_UNUSED(notifier)
 	});

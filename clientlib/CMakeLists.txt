@@ -1,4 +1,4 @@
-find_package(Qt5 REQUIRED COMPONENTS Core Network)
+find_package(Qt5 REQUIRED COMPONENTS Core Network Test)
 find_package(LibGit2 REQUIRED)
 find_package(LibCURL REQUIRED)
 find_package(KF5Archive REQUIRED)
@@ -31,6 +31,16 @@ set(SRC
 	task/Network.cpp
 	task/Archive.h
 	task/Archive.cpp
+	task/Future.h
+	task/Future.cpp
+	task/FutureWatcher.h
+	task/FutureWatcher.cpp
+	task/FutureOperators.h
+	task/Promise.h
+	task/Promise.cpp
+	task/FutureData_p.h
+	task/WrappedException.h
+	task/WrappedException.cpp
 
 	git/GitRepo.h
 	git/GitRepo.cpp
@@ -40,7 +50,10 @@ set(SRC
 
 add_library(ralph_clientlib SHARED ${SRC})
 target_include_directories(ralph_clientlib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(ralph_clientlib PRIVATE ralph_common)
-target_link_libraries(ralph_clientlib PUBLIC Qt5::Core Qt5::Network KF5::Archive libgit2 libcurl)
+target_link_libraries(ralph_clientlib PUBLIC ralph_common Qt5::Core Qt5::Network KF5::Archive libgit2 libcurl)
 
 set_source_files_properties(git/GitRepo.cpp PROPERTIES COMPILE_FLAGS -Wno-missing-field-initializers)
+
+add_executable(tst_Future tests/Future_Test.cpp)
+target_link_libraries(tst_Future ralph_clientlib Qt5::Test)
+add_test(NAME tst_Future COMMAND tst_Future)

@@ -24,9 +24,9 @@ GitRepo::GitRepo(const QDir &dir, QObject *parent)
 	initGit();
 }
 
-Task<GitRepo *>::Ptr GitRepo::init(const QDir &dir, QObject *parent)
+Future<GitRepo *> GitRepo::init(const QDir &dir, QObject *parent)
 {
-	return createTask([dir, parent](Notifier)
+	return async([dir, parent](Notifier)
 	{
 		initGit();
 		if (!dir.mkpath(dir.absolutePath())) {
@@ -44,9 +44,9 @@ Task<GitRepo *>::Ptr GitRepo::init(const QDir &dir, QObject *parent)
 	});
 }
 
-Task<GitRepo *>::Ptr GitRepo::open(const QDir &dir, QObject *parent)
+Future<GitRepo *> GitRepo::open(const QDir &dir, QObject *parent)
 {
-	return createTask([dir, parent](Notifier)
+	return async([dir, parent](Notifier)
 	{
 		initGit();
 
@@ -72,8 +72,7 @@ void gitCheckoutNotifier(const char *, const size_t current, const size_t total,
 		pl->notifier.status("Checking out...");
 		pl->state = GitNotifierPayload::CheckingOut;
 	}
-	pl->notifier.progressTotal(int(total));
-	pl->notifier.progressCurrent(int(current));
+	pl->notifier.progress(current, total);
 }
 int gitFetchNotifier(const git_transfer_progress *stats, void *payload)
 {
@@ -82,15 +81,14 @@ int gitFetchNotifier(const git_transfer_progress *stats, void *payload)
 		pl->notifier.status("Fetching...");
 		pl->state = GitNotifierPayload::Fetching;
 	}
-	pl->notifier.progressTotal(int(stats->total_objects));
-	pl->notifier.progressCurrent(int(stats->received_objects));
+	pl->notifier.progress(stats->received_objects, stats->total_objects);
 
 	return 0;
 }
 
-Task<GitRepo *>::Ptr GitRepo::clone(const QDir &dir, const QUrl &url, QObject *parent)
+Future<GitRepo *> GitRepo::clone(const QDir &dir, const QUrl &url, QObject *parent)
 {
-	return createTask([dir, url, parent](Notifier notifier)
+	return async([dir, url, parent](Notifier notifier)
 	{
 		initGit();
 
@@ -113,9 +111,9 @@ Task<GitRepo *>::Ptr GitRepo::clone(const QDir &dir, const QUrl &url, QObject *p
 	});
 }
 
-Task<void>::Ptr GitRepo::fetch() const
+Future<void> GitRepo::fetch() const
 {
-	return createTask([this](Notifier notifier)
+	return async([this](Notifier notifier)
 	{
 		auto remote = GitResource<git_remote>::create(&git_remote_lookup, &git_remote_free, m_repo, "origin");
 
@@ -130,9 +128,9 @@ Task<void>::Ptr GitRepo::fetch() const
 	});
 }
 
-Task<void>::Ptr GitRepo::checkout(const QString &id) const
+Future<void> GitRepo::checkout(const QString &id) const
 {
-	return createTask([this, id](Notifier notifier)
+	return async([this, id](Notifier notifier)
 	{
 		auto treeish = GitResource<git_object>::create(&git_revparse_single, &git_object_free, m_repo, id.toLocal8Bit().constData());
 
@@ -146,9 +144,9 @@ Task<void>::Ptr GitRepo::checkout(const QString &id) const
 	});
 }
 
-Task<void>::Ptr GitRepo::pull(const QString &id) const
+Future<void> GitRepo::pull(const QString &id) const
 {
-	return createTask([this, id](Notifier notifier)
+	return async([this, id](Notifier notifier)
 	{
 		notifier.await(fetch());
 		notifier.await(checkout(id));

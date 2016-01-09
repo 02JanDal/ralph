@@ -8,11 +8,6 @@
 
 #include "TermUtil.h"
 
-std::ostream &operator<<(std::ostream &str, const QString &string)
-{
-	return str << string.toLocal8Bit().constData();
-}
-
 namespace Ralph {
 namespace Common {
 namespace CommandLine {
@@ -20,8 +15,10 @@ namespace CommandLine {
 class CommandLineException : public Exception
 {
 public:
-	explicit CommandLineException(const QString &message, const QVector<QString> &commandChain = QVector<QString>())
+	explicit CommandLineException(const QString &message, const QVector<QString> &commandChain)
 		: Exception(message), m_commandChain(commandChain) {}
+	CommandLineException(const CommandLineException &) = default;
+	virtual ~CommandLineException();
 
 	QVector<QString> commandChain() const { return m_commandChain; }
 
@@ -29,7 +26,11 @@ private:
 	QVector<QString> m_commandChain;
 };
 
-#define DEC_EXCEPTION(name) class name##Exception : public CommandLineException { public: using CommandLineException::CommandLineException; }
+#define DEC_EXCEPTION(name) \
+	QT_WARNING_PUSH \
+	QT_WARNING_DISABLE_GCC("-Wweak-vtables") \
+	class name##Exception : public CommandLineException { public: using CommandLineException::CommandLineException; } \
+	QT_WARNING_POP
 DEC_EXCEPTION(ToManyPositionals);
 DEC_EXCEPTION(UnknownOption);
 DEC_EXCEPTION(UnexpectedArgument);
@@ -452,6 +453,8 @@ QString detail::valueOf(const Option &option, const Result &result)
 {
 	return result.value(option.names().first());
 }
+
+CommandLineException::~CommandLineException() {}
 
 }
 }

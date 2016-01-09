@@ -18,7 +18,7 @@ class Requirement
 public:
 	using Ptr = std::shared_ptr<Requirement>;
 
-	virtual ~Requirement() {}
+	virtual ~Requirement();
 
 	virtual QJsonValue toJson() const = 0;
 

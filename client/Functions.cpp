@@ -6,11 +6,23 @@
 
 #include <iostream>
 
+#include "task/FutureWatcher.h"
 #include "task/Network.h"
+#include "TermUtil.h"
 #include "config.h"
 
 namespace Ralph {
 namespace Client {
+
+template <typename T>
+T awaitTerminal(const Future<T> &future)
+{
+	FutureWatcher<T> watcher(future);
+	FutureWatcher<T>::connect(&watcher, &FutureWatcher<T>::status, [](const QString &str) {
+		std::cout << str << '\n';
+	});
+	return await(future);
+}
 
 State::State()
 {
@@ -47,8 +59,8 @@ void State::updateSources(const Common::CommandLine::Result &result)
 {
 	Q_UNUSED(result)
 	std::cout << "Updating package database(s). This might take a while...\n";
-	Task<void>::Ptr task = await(createDB())->update();
-	await(task);
+	Future<void> task = awaitTerminal(createDB())->update();
+	awaitTerminal(task);
 	std::cout << "Finished successfully\n";
 }
 
@@ -62,9 +74,9 @@ void State::removeSource(const Common::CommandLine::Result &result)
 	Q_UNUSED(result)
 }
 
-Task<PackageDatabase *>::Ptr State::createDB()
+Future<PackageDatabase *> State::createDB()
 {
-	return createTask([this](Notifier notifier) -> PackageDatabase *
+	return async([this](Notifier notifier) -> PackageDatabase *
 	{
 		if (!m_db) {
 			const QString userDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);

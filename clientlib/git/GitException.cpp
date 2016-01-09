@@ -11,6 +11,8 @@ GitException::GitException(const char *error, const int id)
 {
 }
 
+GitException::~GitException() {}
+
 void GitException::checkAndThrow(const int error)
 {
 	if (error < 0) {

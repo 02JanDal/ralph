@@ -16,9 +16,9 @@ namespace Archive {
 
 
 
-Task<void>::Ptr extract(const QString &filename, const QDir &destination)
+Future<void> extract(const QString &filename, const QDir &destination)
 {
-	return createTask([filename, destination](Notifier notifier)
+	return async([filename, destination](Notifier notifier)
 	{
 		const QMimeType mimetype = QMimeDatabase().mimeTypeForFile(filename);
 
@@ -94,7 +94,7 @@ Task<void>::Ptr extract(const QString &filename, const QDir &destination)
 
 		std::sort(fileList.begin(), fileList.end(), [](const KArchiveFile *a, const KArchiveFile *b) { return a->position() < b->position(); });    // sort on d->pos, so we have a linear access
 
-		notifier.progressTotal(totalSize);
+		notifier.progress(0, totalSize);
 
 		std::size_t currentSize = 0;
 
@@ -104,7 +104,7 @@ Task<void>::Ptr extract(const QString &filename, const QDir &destination)
 				throw ArchiveException("Unable to extract file");
 			}
 			currentSize += std::size_t(f->size());
-			notifier.progressCurrent(currentSize);
+			notifier.progress(currentSize, totalSize);
 		}
 	});
 }

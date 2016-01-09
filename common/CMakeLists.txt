@@ -21,6 +21,7 @@ set(SRC
 	Exception.cpp
 	BaseConfigObject.h
 	BaseConfigObject.cpp
+	Formatting.h
 
 	CommandLineParser.h
 	CommandLineParser_p.h
@@ -37,4 +38,4 @@ target_link_libraries(ralph_common PUBLIC Qt5::Core Qt5::Network)
 
 add_executable(tst_Functional tests/Functional_Test.cpp)
 target_link_libraries(tst_Functional ralph_common)
-add_test(tst_Functional tst_Functional)
+add_test(NAME tst_Functional COMMAND tst_Functional)

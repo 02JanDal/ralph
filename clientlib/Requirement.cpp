@@ -6,6 +6,8 @@
 namespace Ralph {
 namespace ClientLib {
 
+Requirement::~Requirement() {}
+
 QVector<Requirement::Ptr> Requirement::fromJson(const QJsonArray &array)
 {
 	using namespace Json;
@@ -22,7 +24,7 @@ QVector<Requirement::Ptr> Requirement::fromJson(const QJsonArray &array)
 		} else if (type == "or") {
 			return std::make_shared<OrRequirement>(fromJson(ensureArray(obj, "and")));
 		} else {
-			throw Exception("Unknown requirement type: " + type);
+			throw Exception("Unknown requirement type: %1" % type);
 		}
 	});
 }

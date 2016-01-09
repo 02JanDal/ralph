@@ -34,7 +34,7 @@ public:
 	void removeSource(const Common::CommandLine::Result &result);
 
 protected:
-	Task<PackageDatabase *>::Ptr createDB();
+	Future<PackageDatabase *> createDB();
 
 	PackageDatabase *m_db = nullptr;
 	QString m_dir;

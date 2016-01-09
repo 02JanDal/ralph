@@ -13,7 +13,7 @@ namespace Archive {
 
 DECLARE_EXCEPTION(Archive);
 
-Task<void>::Ptr extract(const QString &filename, const QDir &destination);
+Future<void> extract(const QString &filename, const QDir &destination);
 
 }
 }

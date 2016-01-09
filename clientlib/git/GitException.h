@@ -11,6 +11,8 @@ class GitException : public Exception
 	int m_error = -1;
 public:
 	explicit GitException(const char *error, const int id);
+	GitException(const GitException &) = default;
+	virtual ~GitException();
 
 	int error() const { return m_error; }
 

@@ -100,15 +100,15 @@ class GitRepo : public QObject
 public:
 	explicit GitRepo(const QDir &dir, QObject *parent = nullptr);
 
-	static Task<GitRepo *>::Ptr init(const QDir &dir, QObject *parent = nullptr);
-	static Task<GitRepo *>::Ptr open(const QDir &dir, QObject *parent = nullptr);
-	static Task<GitRepo *>::Ptr clone(const QDir &dir, const QUrl &url, QObject *parent = nullptr);
+	static Future<GitRepo *> init(const QDir &dir, QObject *parent = nullptr);
+	static Future<GitRepo *> open(const QDir &dir, QObject *parent = nullptr);
+	static Future<GitRepo *> clone(const QDir &dir, const QUrl &url, QObject *parent = nullptr);
 
 	QDir dir() const { return m_dir; }
 
-	Task<void>::Ptr fetch() const;
-	Task<void>::Ptr checkout(const QString &id) const;
-	Task<void>::Ptr pull(const QString &id) const;
+	Future<void> fetch() const;
+	Future<void> checkout(const QString &id) const;
+	Future<void> pull(const QString &id) const;
 
 	template <typename Func>
 	static void setCredentialsCallback(Func &&func)

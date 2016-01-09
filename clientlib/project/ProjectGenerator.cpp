@@ -6,9 +6,9 @@ namespace Ralph {
 namespace ClientLib {
 ProjectGenerator::ProjectGenerator() {}
 
-Task<Project *>::Ptr ProjectGenerator::generate() const
+Future<Project *> ProjectGenerator::generate() const
 {
-	return createTask([this](Notifier notifier)
+	return async([this](Notifier notifier)
 	{
 		Q_UNUSED(notifier)
 		return new Project();

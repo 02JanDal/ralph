@@ -23,7 +23,7 @@ public:
 	explicit PackageInstallationCandidate(QObject *parent = nullptr);
 	virtual ~PackageInstallationCandidate() {}
 
-	virtual Task<void>::Ptr install(const Package *package, const QDir &cacheDir, const QDir &directory) const = 0;
+	virtual Future<void> install(const Package *package, const QDir &cacheDir, const QDir &directory) const = 0;
 	virtual QJsonObject toJson() const;
 
 	static PackageInstallationCandidate *fromJson(const QJsonObject &obj, QObject *parent = nullptr);
@@ -49,7 +49,7 @@ public:
 	QUrl url() const { return m_url; }
 	void setUrl(QUrl url);
 
-	Task<void>::Ptr install(const Package *package, const QDir &cacheDir, const QDir &directory) const override;
+	Future<void> install(const Package *package, const QDir &cacheDir, const QDir &directory) const override;
 	QJsonObject toJson() const override;
 
 signals:
@@ -66,7 +66,7 @@ class SourcePackageInstallationCandidate : public PackageInstallationCandidate
 public:
 	explicit SourcePackageInstallationCandidate(QObject *parent = nullptr);
 
-	Task<void>::Ptr install(const Package *package, const QDir &cacheDir, const QDir &directory) const override;
+	Future<void> install(const Package *package, const QDir &cacheDir, const QDir &directory) const override;
 	QJsonObject toJson() const override;
 };
 

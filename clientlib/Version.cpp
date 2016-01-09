@@ -89,7 +89,7 @@ VersionRequirement *VersionRequirement::fromString(const QString &string, QObjec
 		version->setType(Equal);
 	}
 	if (!version->version().isValid()) {
-		throw Exception("Unable to parse version in version requirement: '" + string + "'");
+		throw Exception("Unable to parse version in version requirement: '%1'" % string);
 	}
 	return version;
 }

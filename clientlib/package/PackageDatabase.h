@@ -19,24 +19,24 @@ class PackageDatabase : public QObject
 	explicit PackageDatabase(const QDir &dir, const QVector<PackageDatabase *> &inherits, QObject *parent = nullptr);
 
 public:
-	static Task<PackageDatabase *>::Ptr get(const QDir &dir, const QVector<PackageDatabase *> inherits = {});
+	static Future<PackageDatabase *> get(const QDir &dir, const QVector<PackageDatabase *> inherits = {});
 
 	bool isReadonly() const;
 
-	Task<void>::Ptr update();
-	Task<void>::Ptr read();
-	Task<void>::Ptr build();
+	Future<void> update();
+	Future<void> read();
+	Future<void> build();
 
 	const Package *getPackage(const QString &name, const Version &version) const;
 	QVector<const Package *> findPackages(const QString &name, VersionRequirement * const version) const;
 
 	QVector<PackageSource *> sources() const { return m_sources; }
-	Task<void>::Ptr registerPackageSource(PackageSource *source);
+	Future<void> registerPackageSource(PackageSource *source);
 
 	QVector<PackageDatabase *> inheritedDatabases() const { return m_inherits; }
 
 private: // internal
-	Task<void>::Ptr save();
+	Future<void> save();
 
 private: // static/on creation
 	const QDir m_dir;

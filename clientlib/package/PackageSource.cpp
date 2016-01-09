@@ -45,7 +45,7 @@ PackageSource *PackageSource::fromJson(const QJsonValue &value, QObject *parent)
 			source->setIdentifier(ensureString(obj, "identifier", QString()));
 			return source;
 		} else {
-			throw Exception("Invalid source type: '" + type + "'. Known types: 'git', 'github', 'gitrepo'.");
+			throw Exception("Invalid source type: '%1'. Known types: 'git', 'github', 'gitrepo'." % type);
 		}
 	} else {
 		const QString string = ensureString(value);
@@ -75,7 +75,7 @@ PackageSource *PackageSource::fromJson(const QJsonValue &value, QObject *parent)
 			}
 			return source;
 		} else {
-			throw Exception("Invalid source specifier: Unknown type '" + type + "'. Known types: 'git', 'github'.");
+			throw Exception("Invalid source specifier: Unknown type '%1'. Known types: 'git', 'github'." % type);
 		}
 	}
 }

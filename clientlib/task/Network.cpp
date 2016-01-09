@@ -24,8 +24,7 @@ struct NetworkCallbackData
 static int progressCallback(void *data, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal, curl_off_t ulnow)
 {
 	NetworkCallbackData *ncd = static_cast<NetworkCallbackData *>(data);
-	ncd->notifier.progressCurrent(std::size_t(dlnow + ulnow));
-	ncd->notifier.progressTotal(std::size_t(dltotal + ultotal));
+	ncd->notifier.progress(std::size_t(dlnow + ulnow), std::size_t(dltotal + ultotal));
 	return CURLE_OK;
 }
 static size_t writeCallback(void *contents, size_t size, size_t nmemb, void *data)
@@ -53,14 +52,14 @@ static void commonSetup(CURL *curl, const QUrl &url, const NetworkCallbackData &
 	ec(curl_easy_setopt(curl, CURLOPT_WRITEDATA, device));
 }
 
-Task<void>::Ptr download(const QUrl &url, const QString &destination)
+Future<void> download(const QUrl &url, const QString &destination)
 {
 	const QFileInfo info(destination);
 	const QString dest = info.exists() && info.isDir() ?
 				QDir(destination).absoluteFilePath(QFileInfo(url.path()).fileName())
 			  : destination;
 
-	return createTask([url, dest](Notifier notifier)
+	return async([url, dest](Notifier notifier)
 	{
 		NetworkCallbackData progressData{notifier};
 
@@ -87,9 +86,9 @@ Task<void>::Ptr download(const QUrl &url, const QString &destination)
 		}
 	});
 }
-Task<QByteArray>::Ptr get(const QUrl &url)
+Future<QByteArray> get(const QUrl &url)
 {
-	return createTask([url](Notifier notifier)
+	return async([url](Notifier notifier)
 	{
 		NetworkCallbackData progressData{notifier};
 
@@ -119,6 +118,8 @@ void init()
 {
 	curl_global_init(CURL_GLOBAL_DEFAULT);
 }
+
+NetworkException::~NetworkException() {}
 
 void NetworkException::throwIfError(int code, const char *errorbuffer)
 {

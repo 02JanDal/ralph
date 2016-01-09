@@ -11,13 +11,15 @@ class NetworkException : public Exception
 {
 public:
 	using Exception::Exception;
+	NetworkException(const NetworkException &e) = default;
+	virtual ~NetworkException();
 
 	static void throwIfError(int code, const char *errorbuffer = nullptr);
 };
 
 void init();
-Task<void>::Ptr download(const QUrl &url, const QString &destination);
-Task<QByteArray>::Ptr get(const QUrl &url);
+Future<void> download(const QUrl &url, const QString &destination);
+Future<QByteArray> get(const QUrl &url);
 
 }
 }
