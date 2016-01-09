@@ -14,4 +14,5 @@ configure_file(config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h @ONLY)
 add_executable(ralph_client ${SRC})
 target_include_directories(ralph_client PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(ralph_client PRIVATE ralph_common ralph_clientlib)
+target_link_libraries(ralph_client PRIVATE pthread) # wat? why do I need this?
 set_target_properties(ralph_client PROPERTIES OUTPUT_NAME ralph)

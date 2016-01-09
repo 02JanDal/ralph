@@ -172,7 +172,7 @@ public:
 
 protected:
 	void setName(const QString &name) { m_name = name; }
-	static void checkPositionals(const QVector<PositionalArgument> &arguments);
+	static void checkPositionals(const QVector<PositionalArgument> &arguments, const QVector<QString> &commandChain = {});
 
 private:
 	friend class Parser;

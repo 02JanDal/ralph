@@ -115,10 +115,14 @@ QJsonObject Package::toJson() const
 	return obj;
 }
 
-const Package *Package::fromJson(const QJsonDocument &doc)
+const Package *Package::fromJson(const QJsonDocument &doc, Package *package)
 {
 	using namespace Json;
-	Package *package = new Package();
+
+	if (!package) {
+		package = new Package();
+	}
+
 	try {
 		const QJsonObject root = ensureObject(doc);
 

@@ -3,6 +3,7 @@
 #include <QStringList>
 #include <QCoreApplication>
 #include <QRegularExpression>
+#include <QDebug>
 
 #include <iostream>
 
@@ -272,7 +273,7 @@ Result Parser::parse(const QStringList &arguments) const
 			}
 		}
 		positionals.append(command.arguments());
-		checkPositionals(positionals);
+		checkPositionals(positionals, result.commandChain);
 		currentCommand = command;
 		result.commandChain.append(command.name());
 	};
@@ -285,17 +286,17 @@ Result Parser::parse(const QStringList &arguments) const
 	auto handleOption = [&result, &options](const QString &name, const QString &value, const bool hasValue, QStringListIterator *it)
 	{
 		if (!options.contains(name)) {
-			throw UnknownOptionException("Unknown option: --" + name);
+			throw UnknownOptionException("Unknown option: --" + name, result.commandChain);
 		}
 		const Option &option = options.value(name);
 		if (hasValue && !option.hasArgument()) {
-			throw UnexpectedArgumentException("Didn't expect an argument in " + (it ? it->peekPrevious() : name));
+			throw UnexpectedArgumentException("Didn't expect an argument in " + (it ? it->peekPrevious() : name), result.commandChain);
 		} else if (!hasValue && option.hasArgument() && option.isArgumentRequired()) {
 			if (it && it->hasNext() && !it->peekNext().startsWith('-')) {
 				result.options.insert(option.names().first(), it->next());
 				return;
 			} else {
-				throw MissingRequiredArgumentException("Missing required argument to --" + name);
+				throw MissingRequiredArgumentException("Missing required argument to -%1%2" % QString(name.size() > 1 ?  "-" : "") % name, result.commandChain);
 			}
 		}
 		result.options.insert(option.names().first(), value);
@@ -305,7 +306,8 @@ Result Parser::parse(const QStringList &arguments) const
 		const int availablePositionals = Functional::collection(result.arguments.values()).mapSize().sum() + args.size();
 		const bool haveMulti = !positionals.isEmpty() && positionals.last().isMulti();
 		if (availablePositionals > positionals.size() && !haveMulti) {
-			throw ToManyPositionalsException(QString("Expected no more than %1 positional arguments, got %2").arg(positionals.size()).arg(availablePositionals));
+			throw ToManyPositionalsException(QString("Expected no more than %1 positional arguments, got %2") % positionals.size() % availablePositionals,
+											 result.commandChain);
 		}
 		for (const QString &arg : args) {
 			if (positionals.size() == result.arguments.size()) {
@@ -337,7 +339,7 @@ Result Parser::parse(const QStringList &arguments) const
 		} else if (item.startsWith("--")) {
 			const QRegularExpressionMatch match = doubleOptionExpression.match(item);
 			if (!match.hasMatch()) {
-				throw MalformedOptionException("Malformed option: " + item);
+				throw MalformedOptionException("Malformed option: " + item, result.commandChain);
 			}
 			const QString name = match.captured("name");
 			const QString value = match.captured("value");
@@ -346,10 +348,11 @@ Result Parser::parse(const QStringList &arguments) const
 		} else if (item.startsWith('-')) {
 			const QRegularExpressionMatch match = singleOptionExpression.match(item);
 			if (!match.hasMatch()) {
-				throw MalformedOptionException("Malformed option: " + item);
+				throw MalformedOptionException("Malformed option: " + item, result.commandChain);
 			}
 			QString items = match.captured("names");
-			const QString last = items.remove(items.size() - 1);
+			const QString last = items.at(items.size() - 1);
+			items = items.remove(items.size() - 1, 1);
 			for (const QChar &option : items) {
 				handleOption(option, QString(), false, nullptr);
 			}
@@ -379,7 +382,7 @@ void Parser::handle(const Result &result) const
 
 	for (const PositionalArgument &arg : result.possiblePositionals()) {
 		if (!result.hasArgument(arg.name()) && !arg.isOptional()) {
-			throw MissingPositionalArgumentException(QString("Missing required positional argument '%1'").arg(arg.name()));
+			throw MissingPositionalArgumentException(QString("Missing required positional argument '%1'").arg(arg.name()), result.commandChain());
 		}
 	}
 
@@ -387,8 +390,10 @@ void Parser::handle(const Result &result) const
 		const Option &opt = result.possibleOptions().value(option);
 		if (!opt.allowedValues().isEmpty() && !opt.allowedValues().contains(result.value(option))) {
 			throw InvalidOptionValueException(QString("The value to -%1%2 is not allowed; valid values: %3")
-											  .arg(option.size() == 1 ? "-" : "").arg(option)
-											  .arg(opt.allowedValues().toList().join(", ")));
+											  .arg(option.size() == 1 ? "-" : "")
+											  .arg(option)
+											  .arg(opt.allowedValues().toList().join(", ")),
+											  result.commandChain());
 		}
 		if (!opt.isEarlyExit()) {
 			opt.call(result);
@@ -418,7 +423,7 @@ bool Result::value<bool>(const QString &key) const
 	}
 }
 
-void Command::checkPositionals(const QVector<PositionalArgument> &arguments)
+void Command::checkPositionals(const QVector<PositionalArgument> &arguments, const QVector<QString> &commandChain)
 {
 	if (arguments.size() > 1) {
 		const QVector<PositionalArgument> exceptLast = arguments.mid(0, arguments.size()-1);
@@ -426,14 +431,14 @@ void Command::checkPositionals(const QVector<PositionalArgument> &arguments)
 		// only the last may be multi
 		for (const PositionalArgument &arg : exceptLast) {
 			if (arg.isMulti()) {
-				throw BuildException("Only the last positional argument may be multi");
+				throw BuildException("Only the last positional argument may be multi", commandChain);
 			}
 		}
 		// if the last is multi, no arguments before it may be optional
 		if (arguments.last().isMulti()) {
 			for (const PositionalArgument &arg : exceptLast) {
 				if (arg.isOptional()) {
-					throw BuildException("May now have optional positional argument before multi positional argument");
+					throw BuildException("May now have optional positional argument before multi positional argument", commandChain);
 				}
 			}
 		}
@@ -441,7 +446,7 @@ void Command::checkPositionals(const QVector<PositionalArgument> &arguments)
 		bool haveHadOptional = false;
 		for (const PositionalArgument &arg : arguments) {
 			if (haveHadOptional && !arg.isOptional()) {
-				throw BuildException("May not have required positional arguments after optional ones");
+				throw BuildException("May not have required positional arguments after optional ones", commandChain);
 			} else if (arg.isOptional()) {
 				haveHadOptional = true;
 			}

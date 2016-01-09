@@ -2,6 +2,7 @@
 #include <QCommandLineParser>
 #include <QDir>
 #include <QDebug>
+#include <QResource>
 #include <iostream>
 
 #include "Functions.h"
@@ -14,6 +15,8 @@ int main(int argc, char **argv) {
 	app.setApplicationName("ralph");
 	app.setApplicationVersion(Ralph_CLIENT_VERSION);
 	app.setOrganizationName("02JanDal");
+
+	Q_INIT_RESOURCE(resources);
 
 	using namespace Ralph::Common::CommandLine;
 	using Ralph::Client::State;

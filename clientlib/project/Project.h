@@ -10,6 +10,8 @@ class Project : public Package
 	Q_OBJECT
 public:
 	explicit Project(QObject *parent = nullptr);
+
+	static const Project *fromJson(const QJsonDocument &doc);
 };
 
 }

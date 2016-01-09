@@ -79,7 +79,7 @@ public:
 	void setDependencies(const QVector<PackageDependency *> &dependencies);
 
 	virtual QJsonObject toJson() const;
-	static const Package *fromJson(const QJsonDocument &doc);
+	static const Package *fromJson(const QJsonDocument &doc, Package *package = nullptr);
 
 	QVector<PackageInstallationCandidate *> installationCandidates() const { return m_installationCandidates; }
 	void setInstallationCandidates(QVector<PackageInstallationCandidate *> installationCandidates);

@@ -4,6 +4,7 @@ find_package(LibCURL REQUIRED)
 find_package(KF5Archive REQUIRED)
 
 set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC ON)
 
 set(SRC
 	package/Package.h
@@ -46,6 +47,8 @@ set(SRC
 	git/GitRepo.cpp
 	git/GitException.h
 	git/GitException.cpp
+
+	resources.qrc
 )
 
 add_library(ralph_clientlib SHARED ${SRC})

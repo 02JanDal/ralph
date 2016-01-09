@@ -7,8 +7,13 @@
 #include <iostream>
 
 #include "task/FutureWatcher.h"
+#include "project/ProjectGenerator.h"
+#include "project/Project.h"
 #include "task/Network.h"
 #include "TermUtil.h"
+#include "FileSystem.h"
+#include "Json.h"
+#include "CommandLineParser.h"
 #include "config.h"
 
 namespace Ralph {
@@ -49,10 +54,18 @@ void State::setDir(const QString &dir)
 
 void State::verifyProject()
 {
+	const Project *project = Project::fromJson(Json::ensureDocument(QDir(m_dir).absoluteFilePath("ralph.json")));
+	std::cout << "The project " << Common::Term::style(Common::Term::Bold, project->name()) << " in " << m_dir << " is valid!\n";
 }
 void State::newProject(const Common::CommandLine::Result &result)
 {
-	Q_UNUSED(result)
+	ProjectGenerator generator;
+	generator.setName(result.argument("name"));
+	generator.setBuildSystem(result.value("build-system"));
+	generator.setVCS(result.value("version-control-system"));
+	generator.setDirectory(m_dir);
+	Project *project = awaitTerminal(generator.generate());
+	std::cout << "The project " << project->name().toLocal8Bit().constData() << " was created successfully!\n";
 }
 
 void State::updateSources(const Common::CommandLine::Result &result)
