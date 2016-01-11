@@ -9,7 +9,9 @@
 #include "task/FutureWatcher.h"
 #include "project/ProjectGenerator.h"
 #include "project/Project.h"
+#include "package/PackageSource.h"
 #include "task/Network.h"
+#include "git/GitRepo.h"
 #include "TermUtil.h"
 #include "FileSystem.h"
 #include "Json.h"
@@ -17,34 +19,113 @@
 #include "config.h"
 
 namespace Ralph {
+using namespace Common;
+
 namespace Client {
 
+namespace {
 template <typename T>
 T awaitTerminal(const Future<T> &future)
 {
 	FutureWatcher<T> watcher(future);
-	FutureWatcher<T>::connect(&watcher, &FutureWatcher<T>::status, [](const QString &str) {
-		std::cout << str << '\n';
+	FutureWatcher<T>::connect(&watcher, &FutureWatcher<T>::status, [](const QString &str)
+	{
+		std::cout << Term::wrap(str, Term::currentWidth() - 6) << '\n';
+	});
+	FutureWatcher<T>::connect(&watcher, &FutureWatcher<T>::progress, [](const std::size_t current, const std::size_t total)
+	{
+		if (Term::isTty()) {
+			const int percent = int(std::floor(100 * qreal(current) / qreal(total)));
+			std::cout << Term::save() << Term::move(Term::Up) << Term::move(Term::Right, Term::currentWidth() - 6) << "[";
+			if (percent < 10) {
+				std::cout << "  ";
+			} else if (percent < 100) {
+				std::cout << " ";
+			}
+			std::cout << percent << Term::restore() << std::flush;
+		}
 	});
 	return await(future);
+}
+
+QString databasePath(const QString &type)
+{
+	if (type == "user") {
+		return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+#ifdef Q_OS_LINUX
+	} else if (type == "system") {
+		return "/var/ralph";
+#endif
+	} else {
+		return QString();
+	}
+}
+
+Future<PackageDatabase *> createDatabase(const QString &type)
+{
+	const QString path = databasePath(type);
+	return PackageDatabase::get(path);
+}
+
+PackageSource *sourceFromUrl(const QString &url)
+{
+	const QUrl parsed = QUrl::fromUserInput(url);
+	if (!parsed.isValid()) {
+		throw Exception("The given URL '%1' is not a valid URL" % url);
+	}
+
+	GitRepoPackageSource *src = new GitRepoPackageSource;
+	src->setUrl(parsed);
+	return src;
+}
+Term::Color lastUpdatedColor(const PackageSource *source)
+{
+	const qint64 secsSinceLastUpdate = source->lastUpdated().secsTo(QDateTime::currentDateTimeUtc());
+	if (secsSinceLastUpdate < (3600 * 24 * 1)) {
+		return Term::Green;
+	} else if (secsSinceLastUpdate < (3600 * 24 * 7)) {
+		return Term::Yellow;
+	} else {
+		return Term::Red;
+	}
+}
 }
 
 State::State()
 {
 	Network::init();
+	Git::GitRepo::setCredentialsCallback([](const Git::GitCredentialQuery &query) -> Git::GitCredentialResponse
+	{
+		if (query.allowedTypes() & Git::GitCredentialQuery::UsernamePassword) {
+			std::string username;
+			std::cout << "Username and password for %1 required:\n" % query.url().toString()
+					  << "Username [%1]: " % query.usernameFromUrl();
+			std::getline(std::cin, username);
+			std::cout << "Password []: ";
+			const QString password = Term::readPassword();
+			return Git::GitCredentialResponse::createForUsernamePassword(
+						username.empty() ? query.usernameFromUrl() : QString::fromStdString(username),
+						password);
+		} else {
+			return Git::GitCredentialResponse::createInvalid();
+		}
+	});
 }
 
 void State::removePackage(const Common::CommandLine::Result &result)
 {
 	Q_UNUSED(result)
+	// TODO package removal
 }
 void State::installPackage(const Common::CommandLine::Result &result)
 {
 	Q_UNUSED(result)
+	// TODO package installation
 }
 void State::checkPackage(const Common::CommandLine::Result &result)
 {
 	Q_UNUSED(result)
+	// TODO package checking
 }
 
 void State::setDir(const QString &dir)
@@ -70,21 +151,104 @@ void State::newProject(const Common::CommandLine::Result &result)
 
 void State::updateSources(const Common::CommandLine::Result &result)
 {
-	Q_UNUSED(result)
-	std::cout << "Updating package database(s). This might take a while...\n";
-	Future<void> task = awaitTerminal(createDB())->update();
-	awaitTerminal(task);
-	std::cout << "Finished successfully\n";
-}
+	using namespace Term;
 
+	PackageDatabase *db = awaitTerminal(createDatabase(result.value("database")));
+	if (!db) {
+		throw Exception("Database does not exists and unable to create it");
+	}
+
+	const QVector<PackageSource *> sources = result.hasArgument("names") ?
+				Functional::map(result.argumentMulti("names"), [db](const QString &name) { return db->source(name); })
+			  : db->sources();
+
+	for (PackageSource *source : sources) {
+		std::cout << "Updating " << source->typeString() << " source " << fg(Cyan, source->name()) << "...\n";
+		awaitTerminal(source->update());
+	}
+}
 void State::addSource(const Common::CommandLine::Result &result)
 {
-	Q_UNUSED(result)
-}
+	PackageDatabase *db = awaitTerminal(createDatabase(result.value("database")));
+	if (!db) {
+		throw Exception("Database does not exists and unable to create it");
+	}
 
+	PackageSource *source = sourceFromUrl(result.argument("url"));
+	source->setName(result.argument("name"));
+	source->setLastUpdated();
+	awaitTerminal(db->registerPackageSource(source));
+	std::cout << "New source " << source->name() << " successfully registered. You may want to run 'ralph sources update %1' now.\n" % source->name();
+}
 void State::removeSource(const Common::CommandLine::Result &result)
 {
-	Q_UNUSED(result)
+	PackageDatabase *db = awaitTerminal(createDatabase(result.value("database")));
+	if (!db) {
+		throw Exception("Database does not exists and unable to create it");
+	}
+
+	awaitTerminal(db->unregisterPackageSource(result.argument("name")));
+	std::cout << "Source " << result.argument("name") << " was successfully removed.\n";
+}
+void State::listSources(const Common::CommandLine::Result &result)
+{
+	using namespace Term;
+
+	auto output = [](const QString &databaseType, bool force = false)
+	{
+		PackageDatabase *db = awaitTerminal(createDatabase(databaseType));
+		if (!db) {
+			if (force) {
+				throw Exception("Database does not exists and unable to create it");
+			} else {
+				return;
+			}
+		}
+
+		std::cout << style(Bold, "Package sources in the %1 database:\n" % databaseType);
+		for (const PackageSource *source : db->sources()) {
+			std::cout << " * " << source->name() << " (type: %1, last updated: %2)\n" % source->typeString() % fg(lastUpdatedColor(source), source->lastUpdated().toString());
+		}
+		if (db->sources().isEmpty()) {
+			std::cout << "    Empty.\n    Use 'ralph sources add <name> <url>' to add a source!\n";
+		}
+	};
+
+	output(result.value("database"), true);
+
+	if (result.value("database") == "project") {
+		std::cout << '\n';
+		output("user");
+		std::cout << '\n';
+		output("system");
+	}
+	if (result.value("database") == "user") {
+		std::cout << '\n';
+		output("system");
+	}
+}
+void State::showSource(const Common::CommandLine::Result &result)
+{
+	using namespace Term;
+
+	PackageDatabase *db = awaitTerminal(createDatabase(result.value("database")));
+	PackageSource *src = db->source(result.argument("name"));
+	std::cout << style(Bold, "Name: ") << src->name() << '\n'
+			  << style(Bold, "Last updated: ") << fg(lastUpdatedColor(src), src->lastUpdated().toString()) << '\n'
+			  << style(Bold, "Type: ") << src->typeString() << '\n';
+}
+
+void State::info()
+{
+	const QString systemPath = databasePath("system");
+	if (!systemPath.isEmpty()) {
+		std::cout << "Available database location: system at " << systemPath << '\n';
+	}
+
+	const QString userPath = databasePath("user");
+	if (!userPath.isEmpty()) {
+		std::cout << "Available database location: user at " << userPath << '\n';
+	}
 }
 
 Future<PackageDatabase *> State::createDB()
@@ -92,13 +256,10 @@ Future<PackageDatabase *> State::createDB()
 	return async([this](Notifier notifier) -> PackageDatabase *
 	{
 		if (!m_db) {
-			const QString userDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-#if defined(Q_OS_LINUX)
-			const QString systemDir = "/var/ralph";
-#else
-			const QString systemDir;
-#endif
-			PackageDatabase *system = systemDir.isNull() ? nullptr : notifier.await(PackageDatabase::get(systemDir));
+			const QString userDir = databasePath("user");
+			const QString systemDir = databasePath("system");
+
+			PackageDatabase *system = systemDir.isNull() ? nullptr : notifier.await(PackageDatabase::get(databasePath("system")));
 			PackageDatabase *user = userDir.isEmpty() ? nullptr : notifier.await(PackageDatabase::get(userDir, {system}));
 
 #ifdef Ralph_DEFAULT_REPO

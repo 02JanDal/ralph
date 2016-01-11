@@ -3,6 +3,9 @@
 #include <QObject>
 #include <QUrl>
 #include <QDir>
+#include <QDateTime>
+
+#include "task/Future.h"
 
 QT_BEGIN_NAMESPACE
 class QJsonValue;
@@ -17,7 +20,8 @@ class PackageSource : public QObject
 {
 	Q_OBJECT
 	Q_PROPERTY(SourceType type READ type CONSTANT)
-	Q_PROPERTY(QString name READ name WRITE setName NOTIFY nameChanged)
+	Q_PROPERTY(QString name READ name CONSTANT)
+	Q_PROPERTY(QDateTime lastUpdated READ lastUpdated RESET setLastUpdated NOTIFY lastUpdatedChanged)
 
 public:
 	enum SourceType
@@ -37,25 +41,32 @@ public:
 	QString name() const { return m_name; }
 	void setName(const QString &name);
 
+	QDateTime lastUpdated() const { return m_lastUpdated; }
+	void setLastUpdated();
+
 	// (de-)serialization
 	static PackageSource *fromJson(const QJsonValue &value, QObject *parent = nullptr);
+	static PackageSource *fromString(const QString &value, QObject *parent = nullptr);
 	virtual QString toString() const { return QString(); }
-	virtual QJsonObject toJson() const = 0;
+	virtual QJsonObject toJson() const;
 
 	// package access
-	virtual QVector<const Package *> packages() const = 0;
+	virtual Future<QVector<const Package *>> packages() const = 0;
+	virtual Future<void> update() = 0;
 
+	// internal
 	QDir basePath() const { return m_basePath; }
 	/// @internal For usage by PackageDatabase only
 	void setBasePath(const QDir &dir) { m_basePath = dir; }
 
 signals:
-	void nameChanged(const QString &name);
+	void lastUpdatedChanged(QDateTime lastUpdated);
 
 private:
 	const SourceType m_type;
 	QString m_name;
 	QDir m_basePath;
+	QDateTime m_lastUpdated;
 };
 
 class BaseGitPackageSource : public PackageSource
@@ -83,7 +94,7 @@ signals:
 
 private:
 	QUrl m_url;
-	QString m_identifier;
+	QString m_identifier = "master";
 };
 
 class GitSinglePackageSource : public BaseGitPackageSource
@@ -102,7 +113,8 @@ public:
 	QString path() const { return m_path; }
 	void setPath(const QString &path);
 
-	QVector<const Package *> packages() const override;
+	Future<QVector<const Package *>> packages() const override;
+	Future<void> update() override;
 
 	QJsonObject toJson() const override;
 
@@ -148,7 +160,8 @@ public:
 
 	QString typeString() const override { return "gitrepo"; }
 
-	QVector<const Package *> packages() const override;
+	Future<QVector<const Package *>> packages() const override;
+	Future<void> update() override;
 };
 
 }

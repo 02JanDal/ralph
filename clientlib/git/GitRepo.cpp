@@ -62,6 +62,7 @@ Future<GitRepo *> GitRepo::open(const QDir &dir, QObject *parent)
 struct GitNotifierPayload
 {
 	Notifier notifier;
+	QString identifier;
 	enum { Initial, Fetching, CheckingOut } state = Initial;
 };
 
@@ -69,7 +70,7 @@ void gitCheckoutNotifier(const char *, const size_t current, const size_t total,
 {
 	GitNotifierPayload *pl = static_cast<GitNotifierPayload *>(payload);
 	if (pl->state != GitNotifierPayload::CheckingOut) {
-		pl->notifier.status("Checking out...");
+		pl->notifier.status("Checking out %1..." % pl->identifier);
 		pl->state = GitNotifierPayload::CheckingOut;
 	}
 	pl->notifier.progress(current, total);
@@ -137,7 +138,7 @@ Future<void> GitRepo::checkout(const QString &id) const
 		git_checkout_options opts = GIT_CHECKOUT_OPTIONS_INIT;
 		opts.checkout_strategy = GIT_CHECKOUT_FORCE | GIT_CHECKOUT_USE_THEIRS;
 		opts.progress_cb = &gitCheckoutNotifier;
-		GitNotifierPayload payload{notifier};
+		GitNotifierPayload payload{notifier, id};
 		opts.progress_payload = &payload;
 
 		GitException::checkAndThrow(git_checkout_tree(m_repo, treeish, &opts));

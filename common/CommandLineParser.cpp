@@ -69,10 +69,10 @@ int Parser::process(const QStringList &arguments)
 				  << "This is a logic error in the program. Please report it to the developer.\n";
 		return -1;
 	} catch (CommandLineException &e) {
-		std::cerr << e.what() << "\n\n";
+		std::cerr << Term::fg(Term::Red, e.what()) << "\n\n";
 		printHelp(e.commandChain());
 	} catch (Exception &e) {
-		std::cerr << e.what() << '\n';
+		std::cerr << Term::fg(Term::Red, e.what()) << '\n';
 		return -1;
 	}
 }
@@ -381,7 +381,7 @@ void Parser::handle(const Result &result) const
 	}
 
 	for (const PositionalArgument &arg : result.possiblePositionals()) {
-		if (!result.hasArgument(arg.name()) && !arg.isOptional()) {
+		if ((!result.hasArgument(arg.name()) || result.argument(arg.name()).isEmpty()) && !arg.isOptional()) {
 			throw MissingPositionalArgumentException(QString("Missing required positional argument '%1'").arg(arg.name()), result.commandChain());
 		}
 	}

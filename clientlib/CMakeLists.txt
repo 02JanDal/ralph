@@ -58,5 +58,5 @@ target_link_libraries(ralph_clientlib PUBLIC ralph_common Qt5::Core Qt5::Network
 set_source_files_properties(git/GitRepo.cpp PROPERTIES COMPILE_FLAGS -Wno-missing-field-initializers)
 
 add_executable(tst_Future tests/Future_Test.cpp)
-target_link_libraries(tst_Future ralph_clientlib Qt5::Test)
+target_link_libraries(tst_Future PRIVATE ralph_clientlib Qt5::Test)
 add_test(NAME tst_Future COMMAND tst_Future)

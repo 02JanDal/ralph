@@ -32,6 +32,10 @@ public:
 	void updateSources(const Common::CommandLine::Result &result);
 	void addSource(const Common::CommandLine::Result &result);
 	void removeSource(const Common::CommandLine::Result &result);
+	void listSources(const Common::CommandLine::Result &result);
+	void showSource(const Common::CommandLine::Result &result);
+
+	void info();
 
 protected:
 	Future<PackageDatabase *> createDB();

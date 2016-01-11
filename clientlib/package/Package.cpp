@@ -144,8 +144,10 @@ const Package *Package::fromJson(const QJsonDocument &doc, Package *package)
 			dep->setOptional(ensureBoolean(obj, QStringLiteral("optional"), false));
 			dep->setRequirements(std::make_shared<AndRequirement>(AndRequirement::fromJson(ensureArray(obj, "requirements", QJsonArray()))));
 
-			if (obj.contains("source")) {
+			if (obj.contains("source") && obj.value("source").isObject()) {
 				dep->setSource(PackageSource::fromJson(obj.value("source"), dep));
+			} else if (obj.contains("source") && obj.value("source").isString()) {
+				dep->setSource(PackageSource::fromString(obj.value("source").toString(), dep));
 			}
 
 			return dep;

@@ -86,6 +86,9 @@ public:
 
 	Types allowedTypes() const { return m_types; }
 
+	QUrl url() const { return m_url; }
+	QString usernameFromUrl() const { return m_usernameFromUrl; }
+
 private:
 	Types m_types;
 	QUrl m_url;

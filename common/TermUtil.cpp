@@ -4,12 +4,16 @@
 #include <QRegularExpression>
 #include <QVector>
 
+#include <iostream>
+
 #include "Functional.h"
+#include "Formatting.h"
 
 #ifdef Q_OS_UNIX
 # include <sys/ioctl.h>
 # include <cstdio>
 # include <unistd.h>
+# include <termios.h>
 #else
 # include <io.h>
 # include <windows.h>
@@ -70,6 +74,51 @@ static QString getBGColorCode(const Color color)
 	case Term::White: return "\033[47m";
 	}
 }
+static QChar getMoveTypeCode(const MoveType type)
+{
+	switch (type) {
+	case Ralph::Common::Term::Up: return 'A';
+	case Ralph::Common::Term::Down: return 'B';
+	case Ralph::Common::Term::Left: return 'D';
+	case Ralph::Common::Term::Right: return 'C';
+	case Ralph::Common::Term::LineDown: return 'E';
+	case Ralph::Common::Term::LineUp: return 'F';
+	}
+}
+// http://stackoverflow.com/a/1455007/953222
+static void setStdinEcho(const bool enable)
+{
+	struct termios tty;
+	tcgetattr(STDIN_FILENO, &tty);
+
+	QT_WARNING_PUSH
+	QT_WARNING_DISABLE_GCC("-Wsign-conversion")
+	if (!enable) {
+		tty.c_lflag &= ~ECHO;
+	} else {
+		tty.c_lflag |= ECHO;
+	}
+	QT_WARNING_POP
+
+	tcsetattr(STDIN_FILENO, TCSANOW, &tty);
+}
+#elif defined(Q_OS_WIN)
+// http://stackoverflow.com/a/1455007/953222
+static void setStdinEcho(const bool enable)
+{
+	// WARNING this has not been tested
+	HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
+	DWORD mode;
+	GetConsoleMode(hStdin, &mode);
+
+	if(!enable) {
+		mode &= ~ENABLE_ECHO_INPUT;
+	} else {
+		mode |= ENABLE_ECHO_INPUT;
+	}
+
+	SetConsoleMode(hStdin, mode );
+}
 #endif
 }
 
@@ -120,14 +169,46 @@ QString bg(const Color color, const QString &in)
 }
 QString reset()
 {
-	if (!isTty())
-	{
+	if (!isTty()) {
 		return QString();
 	}
 #ifdef Q_OS_WIN
 	return "";
 #else
 	return "\033[00m";
+#endif
+}
+QString move(const MoveType type, const int n)
+{
+	if (!isTty()) {
+		return QString();
+	}
+#ifdef Q_OS_WIN
+	return "";
+#else
+	return QStringLiteral("\033[%1%2") % n % detail::getMoveTypeCode(type);
+#endif
+}
+QString save()
+{
+	if (!isTty()) {
+		return QString();
+	}
+#ifdef Q_OS_WIN
+	return "";
+#else
+	return "\033[s";
+#endif
+}
+QString restore()
+{
+	if (!isTty()) {
+		return QString();
+	}
+#ifdef Q_OS_WIN
+	return "";
+#else
+	return "\033[u";
 #endif
 }
 
@@ -259,6 +340,16 @@ QString table(const QVector<QVector<QString> > &rows, const QVector<int> &column
 				.join("\n" + QString(indent, ' '));
 	})
 			.join("\n" + QString(indent, ' '));
+}
+
+QString readPassword()
+{
+	std::string str;
+	detail::setStdinEcho(false);
+	std::getline(std::cin, str);
+	std::cout << '\n';
+	detail::setStdinEcho(true);
+	return QString::fromStdString(str);
 }
 
 }
