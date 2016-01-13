@@ -3,7 +3,7 @@
 #include "Json.h"
 #include "Functional.h"
 #include "PackageSource.h"
-#include "PackageInstallationCandidate.h"
+#include "PackageMirror.h"
 #include "Requirement.h"
 
 namespace Ralph {
@@ -78,14 +78,14 @@ void Package::setDependencies(const QVector<PackageDependency *> &dependencies)
 		emit dependenciesChanged(m_dependencies);
 	}
 }
-void Package::setInstallationCandidates(QVector<PackageInstallationCandidate *> installationCandidates)
+void Package::setMirrors(QVector<std::shared_ptr<PackageMirror>> mirrors)
 {
-	if (m_installationCandidates == installationCandidates) {
+	if (m_mirrors == mirrors) {
 		return;
 	}
 
-	m_installationCandidates = installationCandidates;
-	emit installationCandidatesChanged(installationCandidates);
+	m_mirrors = mirrors;
+	emit mirrorsChanged(mirrors);
 }
 
 QJsonObject Package::toJson() const
@@ -93,8 +93,8 @@ QJsonObject Package::toJson() const
 	QJsonObject obj;
 	obj.insert("name", name());
 	obj.insert("version", version().toString());
-	if (!installationCandidates().isEmpty()) {
-		obj.insert("installation", Json::toJsonArray(installationCandidates()));
+	if (!mirrors().isEmpty()) {
+		obj.insert("mirrors", Json::toJsonArray(mirrors()));
 	}
 	if (!dependencies().isEmpty()) {
 		obj.insert("dependencies", Json::toJsonArray(Functional::map(dependencies(), [](const PackageDependency *dep)
@@ -128,10 +128,7 @@ const Package *Package::fromJson(const QJsonDocument &doc, Package *package)
 
 		package->setName(ensureString(root, "name"));
 		package->setVersion(Version::fromString(ensureString(root, "version")));
-		package->setInstallationCandidates(Functional::map(ensureIsArrayOf<QJsonObject>(root, "installation", QVector<QJsonObject>()), [package](const QJsonObject &obj)
-		{
-			return PackageInstallationCandidate::fromJson(obj, package);
-		}));
+		package->setMirrors(Functional::map(ensureIsArrayOf<QJsonObject>(root, "mirrors", QVector<QJsonObject>()), &PackageMirror::fromJson));
 		package->setDependencies(Functional::map(ensureIsArrayOf<QJsonObject>(root, "dependencies", QVector<QJsonObject>()), [package](const QJsonObject &obj)
 		{
 			PackageDependency *dep = new PackageDependency(package);

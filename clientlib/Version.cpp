@@ -121,13 +121,13 @@ QString Version::toString() const
 	if (!m_typeString.isEmpty()) {
 		result = m_typeString + '@';
 	}
-	for (const QVector<Section> &sections : m_sections) {
-		for (const Section &section : sections) {
-			result += section.first.isNull() ? QString::number(section.second) : section.first;
-		}
-		result += '-';
-	}
-	return result.remove(result.size() - 1, 1);
+	return Functional::collection(m_sections)
+			.map([](const QVector<Section> &sections)
+	{
+		return Functional::collection(sections)
+				.map([](const Section &section) { return section.first.isNull() ? QString::number(section.second) : section.first; })
+				.join('.');
+	}).join('-');
 }
 
 Version Version::fromString(const QString &string)
@@ -149,7 +149,9 @@ Version Version::fromString(const QString &string)
 		});
 	});
 
-	return Version();
+	result.m_isValid = true;
+
+	return result;
 }
 
 Version::Type Version::typeFromString(const QString &string)

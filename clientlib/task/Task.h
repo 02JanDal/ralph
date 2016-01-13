@@ -6,7 +6,7 @@
 
 #include "Functional.h"
 #include "Exception.h"
-#include "Future.h"
+#include "future/Future.h"
 
 namespace Ralph {
 namespace ClientLib {
@@ -58,23 +58,23 @@ private:
 
 class Notifier
 {
-	Private::BasePromise m_promise;
+	mutable Private::BasePromise m_promise;
 public:
 	template <typename T>
 	explicit Notifier(Task<T> *task)
 		: m_promise(task->m_promise) {}
 
-	void status(const QString &status) { m_promise.reportStatus(status); }
-	void progress(const std::size_t current, const std::size_t total) { m_promise.reportProgress(current, total); }
+	void status(const QString &status) const { m_promise.reportStatus(status); }
+	void progress(const std::size_t current, const std::size_t total) const { m_promise.reportProgress(current, total); }
 
 	template <typename T>
-	inline T await(const Future<T> &future)
+	inline T await(const Future<T> &future) const
 	{
 		return m_promise.await(future);
 	}
 };
 template <>
-inline void Notifier::await<void>(const Future<void> &future)
+inline void Notifier::await<void>(const Future<void> &future) const
 {
 	m_promise.await(future);
 }

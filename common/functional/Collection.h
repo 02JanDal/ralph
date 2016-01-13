@@ -63,6 +63,15 @@ public:
 
 	inline auto mapSize() const { return map(&TOne::size); }
 
+	inline auto flatten() const
+	{
+		return CollectionImpl<TOne>(reduce([](TOne a, const TOne &b)
+		{
+			std::copy(std::begin(b), std::end(b), ContainerTraits<TOne>::InsertionIterator(a));
+			return a;
+		}));
+	}
+
 	inline TOne max() const
 	{
 		return reduce(&Max<TOne>);

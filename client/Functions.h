@@ -25,6 +25,7 @@ public:
 	void removePackage(const Common::CommandLine::Result &result);
 	void installPackage(const Common::CommandLine::Result &result);
 	void checkPackage(const Common::CommandLine::Result &result);
+	void searchPackages(const Common::CommandLine::Result &result);
 
 	void verifyProject();
 	void newProject(const Common::CommandLine::Result &result);

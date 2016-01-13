@@ -6,10 +6,11 @@
 
 #include <iostream>
 
-#include "task/FutureWatcher.h"
+#include "future/FutureWatcher.h"
 #include "project/ProjectGenerator.h"
 #include "project/Project.h"
 #include "package/PackageSource.h"
+#include "package/PackageGroup.h"
 #include "task/Network.h"
 #include "git/GitRepo.h"
 #include "TermUtil.h"
@@ -27,22 +28,24 @@ namespace {
 template <typename T>
 T awaitTerminal(const Future<T> &future)
 {
+	const int maxWidth = Term::currentWidth() == 0 ? 120 : Term::currentWidth();
+
 	FutureWatcher<T> watcher(future);
-	FutureWatcher<T>::connect(&watcher, &FutureWatcher<T>::status, [](const QString &str)
+	FutureWatcher<T>::connect(&watcher, &FutureWatcher<T>::status, [maxWidth](const QString &str)
 	{
-		std::cout << Term::wrap(str, Term::currentWidth() - 6) << '\n';
+		std::cout << Term::wrap(str, maxWidth - 6) << std::endl;
 	});
-	FutureWatcher<T>::connect(&watcher, &FutureWatcher<T>::progress, [](const std::size_t current, const std::size_t total)
+	FutureWatcher<T>::connect(&watcher, &FutureWatcher<T>::progress, [maxWidth](const std::size_t current, const std::size_t total)
 	{
 		if (Term::isTty()) {
 			const int percent = int(std::floor(100 * qreal(current) / qreal(total)));
-			std::cout << Term::save() << Term::move(Term::Up) << Term::move(Term::Right, Term::currentWidth() - 6) << "[";
+			std::cout << Term::save() << Term::move(Term::Up) << Term::move(Term::Right, maxWidth - 6) << "[";
 			if (percent < 10) {
 				std::cout << "  ";
 			} else if (percent < 100) {
 				std::cout << " ";
 			}
-			std::cout << percent << Term::restore() << std::flush;
+			std::cout << percent << "%]" << Term::restore() << std::flush;
 		}
 	});
 	return await(future);
@@ -89,6 +92,27 @@ Term::Color lastUpdatedColor(const PackageSource *source)
 		return Term::Red;
 	}
 }
+
+const Package *queryPackage(const PackageDatabase *db, const QString &query)
+{
+	const int splitIndex = query.indexOf('@');
+	const QString name = query.mid(0, splitIndex);
+	const VersionRequirement *version = splitIndex == -1 ? nullptr : VersionRequirement::fromString(query.mid(splitIndex + 1));
+
+	QVector<const Package *> candidates = db->findPackages(name, version);
+	std::sort(candidates.begin(), candidates.end(), [](const Package *a, const Package *b) { return a->version() < b->version(); });
+
+	if (candidates.isEmpty()) {
+		const bool haveOtherVersions = !db->findPackages(name).isEmpty();
+		if (haveOtherVersions) {
+			throw Exception("No package found for %1, but other versions are available" % query);
+		} else {
+			throw Exception("No package found for %1" % query);
+		}
+	}
+
+	return candidates.first();
+}
 }
 
 State::State()
@@ -112,20 +136,31 @@ State::State()
 	});
 }
 
-void State::removePackage(const Common::CommandLine::Result &result)
+void State::removePackage(const CommandLine::Result &result)
 {
 	Q_UNUSED(result)
 	// TODO package removal
 }
-void State::installPackage(const Common::CommandLine::Result &result)
+void State::installPackage(const CommandLine::Result &result)
 {
-	Q_UNUSED(result)
-	// TODO package installation
+	PackageDatabase *db = awaitTerminal(createDB());
+
+	Functional::collection(result.argumentMulti("packages"))
+			.map([db](const QString &query) { return queryPackage(db, query); })
+			.each([db](const Package *pkg) { awaitTerminal(db->group()->install(pkg)); });
 }
-void State::checkPackage(const Common::CommandLine::Result &result)
+void State::checkPackage(const CommandLine::Result &result)
 {
 	Q_UNUSED(result)
 	// TODO package checking
+}
+void State::searchPackages(const CommandLine::Result &result)
+{
+	const QRegExp query{result.argument("query"), Qt::CaseInsensitive, QRegExp::WildcardUnix};
+	PackageDatabase *db = awaitTerminal(createDB());
+	Functional::collection(db->packageNames())
+			.filter([query](const QString &str) { return query.isEmpty() || str.contains(query); })
+			.each([query](const QString &str) { std::cout << str << '\n'; });
 }
 
 void State::setDir(const QString &dir)
@@ -138,7 +173,7 @@ void State::verifyProject()
 	const Project *project = Project::fromJson(Json::ensureDocument(QDir(m_dir).absoluteFilePath("ralph.json")));
 	std::cout << "The project " << Common::Term::style(Common::Term::Bold, project->name()) << " in " << m_dir << " is valid!\n";
 }
-void State::newProject(const Common::CommandLine::Result &result)
+void State::newProject(const CommandLine::Result &result)
 {
 	ProjectGenerator generator;
 	generator.setName(result.argument("name"));
@@ -149,7 +184,7 @@ void State::newProject(const Common::CommandLine::Result &result)
 	std::cout << "The project " << project->name().toLocal8Bit().constData() << " was created successfully!\n";
 }
 
-void State::updateSources(const Common::CommandLine::Result &result)
+void State::updateSources(const CommandLine::Result &result)
 {
 	using namespace Term;
 
@@ -167,7 +202,7 @@ void State::updateSources(const Common::CommandLine::Result &result)
 		awaitTerminal(source->update());
 	}
 }
-void State::addSource(const Common::CommandLine::Result &result)
+void State::addSource(const CommandLine::Result &result)
 {
 	PackageDatabase *db = awaitTerminal(createDatabase(result.value("database")));
 	if (!db) {
@@ -180,7 +215,7 @@ void State::addSource(const Common::CommandLine::Result &result)
 	awaitTerminal(db->registerPackageSource(source));
 	std::cout << "New source " << source->name() << " successfully registered. You may want to run 'ralph sources update %1' now.\n" % source->name();
 }
-void State::removeSource(const Common::CommandLine::Result &result)
+void State::removeSource(const CommandLine::Result &result)
 {
 	PackageDatabase *db = awaitTerminal(createDatabase(result.value("database")));
 	if (!db) {
@@ -190,7 +225,7 @@ void State::removeSource(const Common::CommandLine::Result &result)
 	awaitTerminal(db->unregisterPackageSource(result.argument("name")));
 	std::cout << "Source " << result.argument("name") << " was successfully removed.\n";
 }
-void State::listSources(const Common::CommandLine::Result &result)
+void State::listSources(const CommandLine::Result &result)
 {
 	using namespace Term;
 
@@ -227,7 +262,7 @@ void State::listSources(const Common::CommandLine::Result &result)
 		output("system");
 	}
 }
-void State::showSource(const Common::CommandLine::Result &result)
+void State::showSource(const CommandLine::Result &result)
 {
 	using namespace Term;
 

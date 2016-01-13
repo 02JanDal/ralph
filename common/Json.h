@@ -9,6 +9,7 @@
 #include <QUuid>
 #include <QVariant>
 #include <QVector>
+#include <memory>
 
 #include "Exception.h"
 #include "Functional.h"
@@ -36,15 +37,18 @@ QJsonObject ensureObject(const QJsonDocument &doc, const QString &what = "Docume
 QJsonArray ensureArray(const QJsonDocument &doc, const QString &what = "Document");
 
 namespace detail {
-template <typename T> QJsonValue toJsonHelper(const T *t, std::true_type) { return t->toJson(); }
+template <typename T> class LikePointer : public std::false_type {};
+template <typename T> class LikePointer<T *> : public std::true_type {};
+template <typename T> class LikePointer<std::shared_ptr<T>> : public std::true_type {};
+
+template <typename T> QJsonValue toJsonHelper(const T &t, std::true_type) { return t->toJson(); }
 template <typename T> QJsonValue toJsonHelper(const T &t, std::false_type) { return QJsonValue(t); }
 }
 
 template <typename T> QJsonValue toJson(const T &t)
 {
-	return detail::toJsonHelper(t, typename std::is_pointer<T>::type());
+	return detail::toJsonHelper(t, typename detail::LikePointer<T>::type());
 }
-//template <typename T> QJsonValue toJson(const T &value) { return value->toJson(); }
 template <> QJsonValue toJson<QUrl>(const QUrl &url);
 template <> QJsonValue toJson<QByteArray>(const QByteArray &data);
 template <> QJsonValue toJson<QDateTime>(const QDateTime &datetime);

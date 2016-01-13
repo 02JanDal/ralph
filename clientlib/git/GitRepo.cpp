@@ -59,28 +59,29 @@ Future<GitRepo *> GitRepo::open(const QDir &dir, QObject *parent)
 	});
 }
 
-struct GitNotifierPayload
+struct GitPayload
 {
 	Notifier notifier;
 	QString identifier;
+	QVariant payload;
 	enum { Initial, Fetching, CheckingOut } state = Initial;
 };
 
-void gitCheckoutNotifier(const char *, const size_t current, const size_t total, void *payload)
+static void gitCheckoutNotifier(const char *, const size_t current, const size_t total, void *payload)
 {
-	GitNotifierPayload *pl = static_cast<GitNotifierPayload *>(payload);
-	if (pl->state != GitNotifierPayload::CheckingOut) {
+	GitPayload *pl = static_cast<GitPayload *>(payload);
+	if (pl->state != GitPayload::CheckingOut) {
 		pl->notifier.status("Checking out %1..." % pl->identifier);
-		pl->state = GitNotifierPayload::CheckingOut;
+		pl->state = GitPayload::CheckingOut;
 	}
 	pl->notifier.progress(current, total);
 }
-int gitFetchNotifier(const git_transfer_progress *stats, void *payload)
+static int gitFetchNotifier(const git_transfer_progress *stats, void *payload)
 {
-	GitNotifierPayload *pl = static_cast<GitNotifierPayload *>(payload);
-	if (pl->state != GitNotifierPayload::Fetching) {
+	GitPayload *pl = static_cast<GitPayload *>(payload);
+	if (pl->state != GitPayload::Fetching) {
 		pl->notifier.status("Fetching...");
-		pl->state = GitNotifierPayload::Fetching;
+		pl->state = GitPayload::Fetching;
 	}
 	pl->notifier.progress(stats->received_objects, stats->total_objects);
 
@@ -93,9 +94,11 @@ Future<GitRepo *> GitRepo::clone(const QDir &dir, const QUrl &url, QObject *pare
 	{
 		initGit();
 
+		notifier.status("Cloning %1..." % url.toString());
+
 		std::unique_ptr<GitRepo> repo = std::make_unique<GitRepo>(dir);
 
-		GitNotifierPayload payload{notifier};
+		GitPayload payload{notifier};
 
 		git_clone_options opts = GIT_CLONE_OPTIONS_INIT;
 		opts.checkout_opts.checkout_strategy = GIT_CHECKOUT_FORCE | GIT_CHECKOUT_USE_THEIRS;
@@ -118,7 +121,7 @@ Future<void> GitRepo::fetch() const
 	{
 		auto remote = GitResource<git_remote>::create(&git_remote_lookup, &git_remote_free, m_repo, "origin");
 
-		GitNotifierPayload payload{notifier};
+		GitPayload payload{notifier};
 
 		git_fetch_options opts = GIT_FETCH_OPTIONS_INIT;
 		opts.callbacks.transfer_progress = &gitFetchNotifier;
@@ -128,7 +131,6 @@ Future<void> GitRepo::fetch() const
 		GitException::checkAndThrow(git_remote_fetch(remote, nullptr, &opts, nullptr));
 	});
 }
-
 Future<void> GitRepo::checkout(const QString &id) const
 {
 	return async([this, id](Notifier notifier)
@@ -138,19 +140,41 @@ Future<void> GitRepo::checkout(const QString &id) const
 		git_checkout_options opts = GIT_CHECKOUT_OPTIONS_INIT;
 		opts.checkout_strategy = GIT_CHECKOUT_FORCE | GIT_CHECKOUT_USE_THEIRS;
 		opts.progress_cb = &gitCheckoutNotifier;
-		GitNotifierPayload payload{notifier, id};
+		GitPayload payload{notifier, id};
 		opts.progress_payload = &payload;
 
 		GitException::checkAndThrow(git_checkout_tree(m_repo, treeish, &opts));
 	});
 }
-
 Future<void> GitRepo::pull(const QString &id) const
 {
 	return async([this, id](Notifier notifier)
 	{
 		notifier.await(fetch());
 		notifier.await(checkout(id));
+	});
+}
+
+static int gitSubmoduleUpdate(git_submodule *sm, const char *, void *payload)
+{
+	GitPayload *pl = static_cast<GitPayload *>(payload);
+
+	git_submodule_update_options opts = GIT_SUBMODULE_UPDATE_OPTIONS_INIT;
+	opts.checkout_opts.checkout_strategy = GIT_CHECKOUT_FORCE | GIT_CHECKOUT_USE_THEIRS;
+	opts.checkout_opts.progress_cb = &gitCheckoutNotifier;
+	opts.checkout_opts.progress_payload = payload;
+	opts.fetch_opts.callbacks.transfer_progress = &gitFetchNotifier;
+	opts.fetch_opts.callbacks.payload = payload;
+	opts.fetch_opts.callbacks.credentials = &GitRepo::credentialsCallback;
+
+	return git_submodule_update(sm, pl->payload.toBool(), &opts);
+}
+Future<void> GitRepo::submodulesUpdate(const bool init) const
+{
+	return async([this, init](Notifier notifier)
+	{
+		GitPayload payload{notifier, QString(), init};
+		GitException::checkAndThrow(git_submodule_foreach(m_repo, &gitSubmoduleUpdate, &payload));
 	});
 }
 

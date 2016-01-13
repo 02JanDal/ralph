@@ -5,7 +5,7 @@
 #include <QDir>
 #include <QDateTime>
 
-#include "task/Future.h"
+#include "task/Task.h"
 
 QT_BEGIN_NAMESPACE
 class QJsonValue;

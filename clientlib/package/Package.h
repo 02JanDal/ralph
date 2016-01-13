@@ -11,7 +11,7 @@ class QJsonDocument;
 namespace Ralph {
 namespace ClientLib {
 class PackageSource;
-class PackageInstallationCandidate;
+class PackageMirror;
 using RequirementPtr = std::shared_ptr<class Requirement>;
 
 class PackageDependency : public QObject
@@ -64,7 +64,7 @@ class Package : public QObject
 	Q_PROPERTY(QString name READ name WRITE setName NOTIFY nameChanged)
 	Q_PROPERTY(Version version READ version WRITE setVersion NOTIFY versionChanged)
 	Q_PROPERTY(QVector<PackageDependency *> dependencies READ dependencies WRITE setDependencies NOTIFY dependenciesChanged)
-	Q_PROPERTY(QVector<PackageInstallationCandidate *> installationCandidates READ installationCandidates WRITE setInstallationCandidates NOTIFY installationCandidatesChanged)
+	Q_PROPERTY(QVector<std::shared_ptr<PackageMirror>> mirrors READ mirrors WRITE setMirrors NOTIFY mirrorsChanged)
 
 public:
 	explicit Package(QObject *parent = nullptr);
@@ -81,20 +81,20 @@ public:
 	virtual QJsonObject toJson() const;
 	static const Package *fromJson(const QJsonDocument &doc, Package *package = nullptr);
 
-	QVector<PackageInstallationCandidate *> installationCandidates() const { return m_installationCandidates; }
-	void setInstallationCandidates(QVector<PackageInstallationCandidate *> installationCandidates);
+	QVector<std::shared_ptr<PackageMirror>> mirrors() const { return m_mirrors; }
+	void setMirrors(QVector<std::shared_ptr<PackageMirror>> mirrors);
 
 signals:
 	void nameChanged(const QString &name);
 	void versionChanged(const Version &version);
 	void dependenciesChanged(const QVector<PackageDependency *> &dependencies);
-	void installationCandidatesChanged(QVector<PackageInstallationCandidate *> installationCandidates);
+	void mirrorsChanged(QVector<std::shared_ptr<PackageMirror>> mirrors);
 
 private:
 	QString m_name;
 	Version m_version;
 	QVector<PackageDependency *> m_dependencies;
-	QVector<PackageInstallationCandidate *> m_installationCandidates;
+	QVector<std::shared_ptr<PackageMirror>> m_mirrors;
 };
 
 }

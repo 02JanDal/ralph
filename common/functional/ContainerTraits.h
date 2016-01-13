@@ -56,6 +56,8 @@ public:
 	using Type = Cont<Args...>;
 	using Iterator = typename Type::iterator;
 	using IteratorTraits = std::iterator_traits<Iterator>;
+	template <typename... OtherArgs>
+	using TypeOtherArgs = Cont<OtherArgs...>;
 
 private:
 	using ContainerIteratorValueType = typename IteratorTraits::value_type;

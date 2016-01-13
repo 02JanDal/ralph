@@ -1,11 +1,11 @@
 #include <QTest>
 #include <QSignalSpy>
 
-#include "task/Future.h"
-#include "task/FutureWatcher.h"
+#include "future/Future.h"
+#include "future/FutureWatcher.h"
+#include "future/Promise.h"
+#include "future/FutureOperators.h"
 #include "task/Task.h"
-#include "task/Promise.h"
-#include "task/FutureOperators.h"
 
 using namespace Ralph::ClientLib;
 using namespace std::literals;

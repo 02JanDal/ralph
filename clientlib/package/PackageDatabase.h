@@ -10,6 +10,7 @@
 
 namespace Ralph {
 namespace ClientLib {
+class PackageGroup;
 
 class PackageDatabase : public QObject
 {
@@ -23,11 +24,13 @@ public:
 
 	bool isReadonly() const;
 
-	Future<void> load();
+	void load();
 	Future<void> build();
 
 	const Package *getPackage(const QString &name, const Version &version) const;
-	QVector<const Package *> findPackages(const QString &name, VersionRequirement * const version) const;
+	QVector<const Package *> findPackages(const QString &name, const VersionRequirement *version = nullptr) const;
+
+	QVector<QString> packageNames() const;
 
 	PackageSource *source(const QString &name) const;
 	QVector<PackageSource *> sources() const { return m_sources; }
@@ -36,8 +39,11 @@ public:
 
 	QVector<PackageDatabase *> inheritedDatabases() const { return m_inherits; }
 
+	std::shared_ptr<PackageGroup> group(const QString &name = QString());
+	QVector<std::shared_ptr<PackageGroup>> groups() const { return m_groups; }
+
 private: // internal
-	Future<void> save();
+	void save();
 
 private: // static/on creation
 	const QDir m_dir;
@@ -45,6 +51,7 @@ private: // static/on creation
 
 private: // settings, semi-static
 	QVector<PackageSource *> m_sources;
+	QVector<std::shared_ptr<PackageGroup>> m_groups;
 
 private: // packages, semi-static
 	mutable QMutex m_mutex;

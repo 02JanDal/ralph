@@ -112,6 +112,7 @@ public:
 	Future<void> fetch() const;
 	Future<void> checkout(const QString &id) const;
 	Future<void> pull(const QString &id) const;
+	Future<void> submodulesUpdate(const bool init = true) const;
 
 	template <typename Func>
 	static void setCredentialsCallback(Func &&func)
@@ -121,14 +122,15 @@ public:
 		m_credentialsFunc = std::forward<Func>(func);
 	}
 
+	static int credentialsCallback(git_cred **out, const char *url,
+								   const char *usernameFromUrl, const unsigned int allowedTypes,
+								   void *payload);
+
 private:
 	QDir m_dir;
 	GitResource<git_repository> m_repo;
 
 	static std::function<GitCredentialResponse(const GitCredentialQuery &)> m_credentialsFunc;
-	static int credentialsCallback(git_cred **out, const char *url,
-								   const char *usernameFromUrl, const unsigned int allowedTypes,
-								   void *payload);
 };
 
 }

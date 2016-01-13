@@ -13,8 +13,17 @@ set(SRC
 	package/PackageDatabase.cpp
 	package/PackageSource.h
 	package/PackageSource.cpp
-	package/PackageInstallationCandidate.h
-	package/PackageInstallationCandidate.cpp
+	package/PackageMirror.h
+	package/PackageMirror.cpp
+	package/PackageGroup.h
+	package/PackageGroup.cpp
+
+	package/steps/InstallationStep.h
+	package/steps/InstallationStep.cpp
+	package/steps/GitInstallationSteps.h
+	package/steps/GitInstallationSteps.cpp
+	package/steps/CMakeInstallationSteps.h
+	package/steps/CMakeInstallationSteps.cpp
 
 	project/Project.h
 	project/Project.cpp
@@ -25,6 +34,8 @@ set(SRC
 	Requirement.cpp
 	Version.h
 	Version.cpp
+	ActionContext.h
+	ActionContext.cpp
 
 	task/Task.h
 	task/Task.cpp
@@ -32,16 +43,19 @@ set(SRC
 	task/Network.cpp
 	task/Archive.h
 	task/Archive.cpp
-	task/Future.h
-	task/Future.cpp
-	task/FutureWatcher.h
-	task/FutureWatcher.cpp
-	task/FutureOperators.h
-	task/Promise.h
-	task/Promise.cpp
-	task/FutureData_p.h
-	task/WrappedException.h
-	task/WrappedException.cpp
+	task/Process.h
+	task/Process.cpp
+
+	future/Future.h
+	future/Future.cpp
+	future/FutureWatcher.h
+	future/FutureWatcher.cpp
+	future/FutureOperators.h
+	future/Promise.h
+	future/Promise.cpp
+	future/FutureData_p.h
+	future/WrappedException.h
+	future/WrappedException.cpp
 
 	git/GitRepo.h
 	git/GitRepo.cpp
@@ -59,4 +73,5 @@ set_source_files_properties(git/GitRepo.cpp PROPERTIES COMPILE_FLAGS -Wno-missin
 
 add_executable(tst_Future tests/Future_Test.cpp)
 target_link_libraries(tst_Future PRIVATE ralph_clientlib Qt5::Test)
+target_link_libraries(tst_Future PRIVATE pthread) # wat? why do I need this?
 add_test(NAME tst_Future COMMAND tst_Future)
