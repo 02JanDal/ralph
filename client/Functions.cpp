@@ -153,8 +153,11 @@ State::State()
 
 void State::removePackage(const CommandLine::Result &result)
 {
-	Q_UNUSED(result)
-	// TODO package removal
+	PackageDatabase *db = awaitTerminal(createDB());
+
+	Functional::collection(result.argumentMulti("packages"))
+			.map([db](const QString &query) { return queryPackage(db, query); })
+			.each([db](const Package *pkg) { awaitTerminal(db->group()->remove(pkg)); });
 }
 void State::installPackage(const CommandLine::Result &result)
 {
@@ -166,8 +169,11 @@ void State::installPackage(const CommandLine::Result &result)
 }
 void State::checkPackage(const CommandLine::Result &result)
 {
-	Q_UNUSED(result)
-	// TODO package checking
+	PackageDatabase *db = awaitTerminal(createDB());
+
+	Functional::collection(result.argumentMulti("packages"))
+			.map([db](const QString &query) { return queryPackage(db, query); })
+			.each([db](const Package *pkg) { if (!db->group()->isInstalled(pkg)) { throw Exception("%1 is not installed" % pkg->name()); } });
 }
 void State::searchPackages(const CommandLine::Result &result)
 {
