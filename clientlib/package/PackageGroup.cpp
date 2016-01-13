@@ -45,7 +45,7 @@ Future<void> PackageGroup::install(const Package *pkg)
 			return;
 		}
 
-		notifier.status("Installing %1..." % pkg->name());
+		notifier.status("Installing %1 into %2..." % pkg->name() % m_name);
 
 		QTemporaryDir buildDir;
 
@@ -66,7 +66,7 @@ Future<void> PackageGroup::remove(const Package *pkg)
 			return;
 		}
 
-		notifier.status("Removing %1..." % pkg->name());
+		notifier.status("Removing %1 from %2..." % pkg->name() % m_name);
 
 		FS::remove(baseDir(pkg));
 

@@ -154,26 +154,29 @@ State::State()
 void State::removePackage(const CommandLine::Result &result)
 {
 	PackageDatabase *db = awaitTerminal(createDB());
+	const QString group = result.value("group");
 
 	Functional::collection(result.argumentMulti("packages"))
 			.map([db](const QString &query) { return queryPackage(db, query); })
-			.each([db](const Package *pkg) { awaitTerminal(db->group()->remove(pkg)); });
+			.each([db, group](const Package *pkg) { awaitTerminal(db->group(group)->remove(pkg)); });
 }
 void State::installPackage(const CommandLine::Result &result)
 {
 	PackageDatabase *db = awaitTerminal(createDB());
+	const QString group = result.value("group");
 
 	Functional::collection(result.argumentMulti("packages"))
 			.map([db](const QString &query) { return queryPackage(db, query); })
-			.each([db](const Package *pkg) { awaitTerminal(db->group()->install(pkg)); });
+			.each([db, group](const Package *pkg) { awaitTerminal(db->group(group)->install(pkg)); });
 }
 void State::checkPackage(const CommandLine::Result &result)
 {
 	PackageDatabase *db = awaitTerminal(createDB());
+	const QString group = result.value("group");
 
 	Functional::collection(result.argumentMulti("packages"))
 			.map([db](const QString &query) { return queryPackage(db, query); })
-			.each([db](const Package *pkg) { if (!db->group()->isInstalled(pkg)) { throw Exception("%1 is not installed" % pkg->name()); } });
+			.each([db, group](const Package *pkg) { if (!db->group(group)->isInstalled(pkg)) { throw Exception("%1 is not installed" % pkg->name()); } });
 }
 void State::searchPackages(const CommandLine::Result &result)
 {
