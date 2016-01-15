@@ -34,18 +34,18 @@ QJsonObject PackageMirror::toJson() const
 	obj.insert("steps", Json::toJsonArray(m_steps));
 	return obj;
 }
-std::shared_ptr<PackageMirror> PackageMirror::fromJson(const QJsonObject &obj)
+PackageMirror PackageMirror::fromJson(const QJsonObject &obj)
 {
 	using namespace Json;
 
-	std::shared_ptr<PackageMirror> candidate = std::make_shared<PackageMirror>();
+	PackageMirror candidate;
 
 	if (obj.contains("git")) {
 		const QJsonObject gitObj = QJsonObject({qMakePair(QStringLiteral("url"), obj.value("git"))});
-		candidate->m_steps.append(std::shared_ptr<InstallationStep>(InstallationStep::create("git-clone", gitObj)));
+		candidate.m_steps.append(std::shared_ptr<InstallationStep>(InstallationStep::create("git-clone", gitObj)));
 	}
 
-	candidate->m_steps.append(Common::Functional::map(ensureIsArrayOf<QJsonValue>(obj, "steps", QVector<QJsonValue>()), [](const QJsonValue &val)
+	candidate.m_steps.append(Common::Functional::map(ensureIsArrayOf<QJsonValue>(obj, "steps", QVector<QJsonValue>()), [](const QJsonValue &val)
 	{
 		if (val.isString()) {
 			return std::shared_ptr<InstallationStep>(InstallationStep::create(val.toString(), QJsonObject()));
@@ -55,7 +55,7 @@ std::shared_ptr<PackageMirror> PackageMirror::fromJson(const QJsonObject &obj)
 		}
 	}));
 
-	candidate->setRequirement(std::make_unique<AndRequirement>(AndRequirement::fromJson(ensureArray(obj, "requirements", QJsonArray()))));
+	candidate.setRequirement(std::make_unique<AndRequirement>(AndRequirement::fromJson(ensureArray(obj, "requirements", QJsonArray()))));
 	return candidate;
 }
 

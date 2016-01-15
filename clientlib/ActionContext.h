@@ -19,6 +19,8 @@
 #include <unordered_map>
 #include <memory>
 
+#include "package/PackageConfiguration.h"
+
 namespace Ralph {
 namespace ClientLib {
 
@@ -54,6 +56,15 @@ public:
 
 	QDir targetDir;
 	QDir buildDir;
+};
+
+class ConfigurationContextItem : public BaseContextItem
+{
+public:
+	explicit ConfigurationContextItem(const PackageConfiguration &conf);
+	virtual ~ConfigurationContextItem();
+
+	const PackageConfiguration config;
 };
 
 }

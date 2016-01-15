@@ -44,6 +44,8 @@ public:
 
 	void verifyProject();
 	void newProject(const Common::CommandLine::Result &result);
+	void installProject(const Common::CommandLine::Result &result);
+	void updateProject(const Common::CommandLine::Result &result);
 
 	void updateSources(const Common::CommandLine::Result &result);
 	void addSource(const Common::CommandLine::Result &result);
@@ -56,7 +58,6 @@ public:
 protected:
 	Future<PackageDatabase *> createDB();
 
-	PackageDatabase *m_db = nullptr;
 	QString m_dir;
 };
 

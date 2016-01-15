@@ -12,4 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-add_custom_target(dummy SOURCES ralph.cmake ralph-load.cmake RalphHelpers.cmake RalphFunctions.cmake)
+add_custom_target(dummy SOURCES ralph.cmake RalphHelpers.cmake RalphFunctions.cmake)
+
+add_library(ralph_cmake_integration STATIC CMakeIntegration.h CMakeIntegration.cpp)
+target_include_directories(ralph_cmake_integration PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_link_libraries(ralph_cmake_integration PUBLIC ralph_clientlib)
+
+install(FILES ralph.cmake RalphHelpers.cmake RalphFunctions.cmake DESTINATION lib/cmake COMPONENT CMakeIntegration)

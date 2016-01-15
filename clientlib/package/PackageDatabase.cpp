@@ -16,20 +16,22 @@
 #include "PackageDatabase.h"
 
 #include <QDataStream>
+#include <QStandardPaths>
 
 #include "Functional.h"
 #include "Exception.h"
 #include "Json.h"
 #include "PackageSource.h"
 #include "PackageGroup.h"
+#include "Package.h"
 
 namespace Ralph {
 using namespace Common;
 
 namespace ClientLib {
 
-PackageDatabase::PackageDatabase(const QDir &dir, const QVector<PackageDatabase *> &inherits, QObject *parent)
-	: QObject(parent), m_dir(dir), m_inherits(inherits), m_mutex(QMutex::Recursive)
+PackageDatabase::PackageDatabase(const QDir &dir, const QVector<PackageDatabase *> &inherits)
+	: m_dir(dir), m_inherits(inherits), m_mutex(QMutex::Recursive)
 {
 }
 
@@ -44,11 +46,57 @@ Future<PackageDatabase *> PackageDatabase::get(const QDir &dir, const QVector<Pa
 		}
 
 		PackageDatabase *db = new PackageDatabase(dir, Functional::filter(inherits, Functional::IsNull));
-		Functional::each(db->inheritedDatabases(), [db](QObject *obj) { obj->setParent(db); });
 		db->load();
 		notifier.await(db->build());
 		return db;
 	});
+}
+Future<PackageDatabase *> PackageDatabase::create(const QString &dir)
+{
+	return async([dir](Notifier notifier) -> PackageDatabase *
+	{
+		const QString userDir = databasePath("user");
+		const QString systemDir = databasePath("system");
+
+		PackageDatabase *system = systemDir.isNull() ? nullptr : notifier.await(PackageDatabase::get(databasePath("system")));
+		PackageDatabase *user = userDir.isEmpty() ? nullptr : notifier.await(PackageDatabase::get(userDir, {system}));
+
+		// system -> user -> local, if no user db is available, but a system db is, it's system -> local
+		PackageDatabase *global = (system && !user) ? system : user;
+
+		if (system) {
+			notifier.status("Using database: system");
+		}
+		if (user) {
+			notifier.status("Using database: user");
+		}
+
+		PackageDatabase *db;
+		if (!dir.isNull()) {
+			db = notifier.await(PackageDatabase::get(dir, {global}));
+			notifier.status("Using database: project");
+		} else {
+			db = global;
+		}
+
+		if (!db) {
+			throw Exception("Error: Unable to load any package database");
+		}
+		return db;
+	});
+}
+
+QString PackageDatabase::databasePath(const QString &type)
+{
+	if (type == "user") {
+		return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+#ifdef Q_OS_LINUX
+	} else if (type == "system") {
+		return "/var/ralph";
+#endif
+	} else {
+		return QString();
+	}
 }
 
 bool PackageDatabase::isReadonly() const
@@ -64,12 +112,12 @@ void PackageDatabase::load()
 		const QJsonObject root = ensureObject(ensureDocument(m_dir.absoluteFilePath("db.json")));
 
 		m_sources = Functional::collection(ensureIsArrayOf<QJsonObject>(root, "sources"))
-				.map([this](const QJsonObject &o) { return PackageSource::fromJson(o, this); })
+				.map([](const QJsonObject &o) { return PackageSource::fromJson(o); })
 				.tap([this](PackageSource *source) { source->setBasePath(m_dir.absoluteFilePath("sources/" + source->name())); });
 
 		m_groups = Functional::map(ensureIsArrayOf<QJsonObject>(root, "groups", QVector<QJsonObject>()), [this](const QJsonObject &obj)
 		{
-			return std::make_shared<PackageGroup>(ensureString(obj, "name"), m_dir.absoluteFilePath(ensureString(obj, "dir")));
+			return PackageGroup{ensureString(obj, "name"), m_dir.absoluteFilePath(ensureString(obj, "dir"))};
 		});
 	}
 }
@@ -79,11 +127,11 @@ void PackageDatabase::save()
 	QMutexLocker locker(&m_mutex);
 	QJsonObject obj;
 	obj.insert("sources", Json::toJsonArray(m_sources));
-	obj.insert("groups", Json::toJsonArray(Functional::map(m_groups, [this](const std::shared_ptr<PackageGroup> &group)
+	obj.insert("groups", Json::toJsonArray(Functional::map(m_groups, [this](const PackageGroup &group)
 	{
 		return QJsonObject({
-							   qMakePair(QStringLiteral("name"), group->name()),
-							   qMakePair(QStringLiteral("dir"), m_dir.relativeFilePath(group->dir().absolutePath()))
+							   qMakePair(QStringLiteral("name"), group.name()),
+							   qMakePair(QStringLiteral("dir"), m_dir.relativeFilePath(group.dir().absolutePath()))
 						   });
 	})));
 	write(obj, m_dir.absoluteFilePath("db.json"));
@@ -152,11 +200,11 @@ const Package *PackageDatabase::getPackage(const QString &name, const Version &v
 	}
 	return nullptr;
 }
-QVector<const Package *> PackageDatabase::findPackages(const QString &name, const VersionRequirement *version) const
+QVector<const Package *> PackageDatabase::findPackages(const QString &name, const VersionRequirement &version) const
 {
 	QMutexLocker locker(&m_mutex);
 	QVector<const Package *> out;
-	out.append(Functional::filter2<QVector<const Package *>>(m_packageMapping.values(name.toLower()), [version](const Package *pkg) { return !version || version->accepts(pkg->version()); }));
+	out.append(Functional::filter2<QVector<const Package *>>(m_packageMapping.values(name.toLower()), [version](const Package *pkg) { return !version.isValid() || version.accepts(pkg->version()); }));
 	for (const PackageDatabase *db : m_inherits) {
 		out.append(db->findPackages(name, version));
 	}
@@ -190,7 +238,6 @@ Future<void> PackageDatabase::registerPackageSource(PackageSource *source)
 		QMutexLocker locker(&m_mutex);
 		m_sources.append(source);
 		source->setBasePath(m_dir.absoluteFilePath("sources/" + source->name()));
-		source->setParent(this);
 
 		save();
 		notifier.await(build());
@@ -217,19 +264,19 @@ Future<void> PackageDatabase::unregisterPackageSource(const QString &name)
 	});
 }
 
-std::shared_ptr<PackageGroup> PackageDatabase::group(const QString &name)
+PackageGroup PackageDatabase::group(const QString &name)
 {
 	if (name.isNull()) {
 		return group("default");
 	}
 
-	for (const std::shared_ptr<PackageGroup> &candidate : m_groups) {
-		if (candidate->name() == name) {
+	for (const PackageGroup &candidate : m_groups) {
+		if (candidate.name() == name) {
 			return candidate;
 		}
 	}
 
-	std::shared_ptr<PackageGroup> newGroup = std::make_shared<PackageGroup>(name, m_dir.absoluteFilePath("groups/%1" % name.toLower().replace(QRegExp("[^a-zA-Z0-9-_]"), "")));
+	PackageGroup newGroup = PackageGroup{name, m_dir.absoluteFilePath("groups/%1" % name.toLower().replace(QRegExp("[^a-zA-Z0-9-_]"), ""))};
 	m_groups.append(newGroup);
 	save();
 	return newGroup;

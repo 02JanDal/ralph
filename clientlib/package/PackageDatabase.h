@@ -15,27 +15,26 @@
 
 #pragma once
 
-#include <QObject>
 #include <QFuture>
 #include <QDir>
 
-#include "Package.h"
-#include "Version.h"
 #include "task/Task.h"
+#include "PackageGroup.h"
+#include "Version.h"
 
 namespace Ralph {
 namespace ClientLib {
-class PackageGroup;
+class PackageSource;
+class Package;
 
-class PackageDatabase : public QObject
+class PackageDatabase
 {
-	Q_OBJECT
-	Q_PROPERTY(bool readonly READ isReadonly CONSTANT)
-
-	explicit PackageDatabase(const QDir &dir, const QVector<PackageDatabase *> &inherits, QObject *parent = nullptr);
+	explicit PackageDatabase(const QDir &dir, const QVector<PackageDatabase *> &inherits);
 
 public:
 	static Future<PackageDatabase *> get(const QDir &dir, const QVector<PackageDatabase *> inherits = {});
+	static Future<PackageDatabase *> create(const QString &dir);
+	static QString databasePath(const QString &type);
 
 	bool isReadonly() const;
 
@@ -43,7 +42,7 @@ public:
 	Future<void> build();
 
 	const Package *getPackage(const QString &name, const Version &version) const;
-	QVector<const Package *> findPackages(const QString &name, const VersionRequirement *version = nullptr) const;
+	QVector<const Package *> findPackages(const QString &name, const VersionRequirement &version = VersionRequirement()) const;
 
 	QVector<QString> packageNames() const;
 
@@ -54,8 +53,8 @@ public:
 
 	QVector<PackageDatabase *> inheritedDatabases() const { return m_inherits; }
 
-	std::shared_ptr<PackageGroup> group(const QString &name = QString());
-	QVector<std::shared_ptr<PackageGroup>> groups() const { return m_groups; }
+	PackageGroup group(const QString &name = QString());
+	QVector<PackageGroup> groups() const { return m_groups; }
 
 private: // internal
 	void save();
@@ -66,7 +65,7 @@ private: // static/on creation
 
 private: // settings, semi-static
 	QVector<PackageSource *> m_sources;
-	QVector<std::shared_ptr<PackageGroup>> m_groups;
+	QVector<PackageGroup> m_groups;
 
 private: // packages, semi-static
 	mutable QMutex m_mutex;

@@ -29,9 +29,12 @@
 #include "Exception.h"
 #include "Functional.h"
 
-namespace Json
-{
+namespace Json {
 DECLARE_EXCEPTION(Json);
+
+namespace Private {
+DEFINE_HAS_MEMBER(toJson, toJson);
+}
 
 enum Requirement
 {
@@ -56,13 +59,17 @@ template <typename T> class LikePointer : public std::false_type {};
 template <typename T> class LikePointer<T *> : public std::true_type {};
 template <typename T> class LikePointer<std::shared_ptr<T>> : public std::true_type {};
 
-template <typename T> QJsonValue toJsonHelper(const T &t, std::true_type) { return t->toJson(); }
-template <typename T> QJsonValue toJsonHelper(const T &t, std::false_type) { return QJsonValue(t); }
+template <typename T> QJsonValue toJsonHelper(const T &t, std::true_type, std::false_type) { return t->toJson(); }
+template <typename T> QJsonValue toJsonHelper(const T &t, std::true_type, std::true_type) { return t->toJson(); }
+template <typename T> QJsonValue toJsonHelper(const T &t, std::false_type, std::false_type) { return QJsonValue(t); }
+template <typename T> QJsonValue toJsonHelper(const T &t, std::false_type, std::true_type) { return t.toJson(); }
 }
 
 template <typename T> QJsonValue toJson(const T &t)
 {
-	return detail::toJsonHelper(t, typename detail::LikePointer<T>::type());
+	return detail::toJsonHelper(t,
+								typename detail::LikePointer<T>::type(),
+								Private::HasMemberFunction_toJson<T>());
 }
 template <> QJsonValue toJson<QUrl>(const QUrl &url);
 template <> QJsonValue toJson<QByteArray>(const QByteArray &data);
@@ -79,6 +86,15 @@ QJsonArray toJsonArray(const QVector<T> &container)
 		array.append(toJson<T>(item));
 	}
 	return array;
+}
+template <typename T>
+QJsonObject toJsonObject(const QHash<QString, T> &container)
+{
+	QJsonObject obj;
+	for (auto it = container.constBegin(); it != container.constEnd(); ++it) {
+		obj.insert(it.key(), toJson<T>(it.value()));
+	}
+	return obj;
 }
 
 template <typename T>
@@ -160,8 +176,7 @@ template <typename T>
 QVector<T> ensureIsArrayOf(const QJsonValue &value, const QVector<T> default_,
 						 const QString &what = "Value")
 {
-	if (value.isUndefined())
-	{
+	if (value.isUndefined()) {
 		return default_;
 	}
 	return ensureIsArrayOf<T>(value, Required, what);
@@ -172,9 +187,8 @@ QVector<T> ensureIsArrayOf(const QJsonObject &parent, const QString &key,
 						 const QString &what = "__placeholder__")
 {
 	const QString localWhat = QString(what).replace("__placeholder__", '\'' + key + '\'');
-	if (!parent.contains(key))
-	{
-		throw JsonException(localWhat + "s parent does not contain " + localWhat);
+	if (!parent.contains(key)) {
+		throw JsonException(localWhat + "'s parent does not contain " + localWhat);
 	}
 	return ensureIsArrayOf<T>(parent.value(key), requirement, localWhat);
 }
@@ -182,12 +196,46 @@ template <typename T>
 QVector<T> ensureIsArrayOf(const QJsonObject &parent, const QString &key,
 						 const QVector<T> &default_, const QString &what = "__placeholder__")
 {
-	const QString localWhat = QString(what).replace("__placeholder__", '\'' + key + '\'');
-	if (!parent.contains(key))
-	{
+	if (!parent.contains(key)) {
 		return default_;
 	}
-	return ensureIsArrayOf<T>(parent.value(key), default_, localWhat);
+	return ensureIsArrayOf<T>(parent, key, Required, what);
+}
+
+template <typename T>
+QHash<QString, T> ensureIsHashOf(const QJsonValue &value, const Requirement = Required, const QString &what = "Value")
+{
+	const QJsonObject object = ensureIsType<QJsonObject>(value, Required, what);
+	QHash<QString, T> out;
+	for (auto it = object.constBegin(); it != object.constEnd(); ++it) {
+		out.insert(it.key(), ensureIsType<T>(object, it.key()));
+	}
+	return out;
+}
+template <typename T>
+QHash<QString, T> ensureIsHashOf(const QJsonValue &value, const QHash<QString, T> default_, const QString &what = "Value")
+{
+	if (value.isUndefined()) {
+		return default_;
+	}
+	return ensureIsHashOf<T>(value, Required, what);
+}
+template <typename T>
+QHash<QString, T> ensureIsHashOf(const QJsonObject &parent, const QString &key, const Requirement = Required, const QString &what = "__placeholder")
+{
+	const QString localWhat = QString(what).replace("__placeholder__", '\'' + key + '\'');
+	if (!parent.contains(key)) {
+		throw JsonException(localWhat + "'s parent does not contain " + localWhat);
+	}
+	return ensureIsHashOf<T>(parent.value(key), Required, localWhat);
+}
+template <typename T>
+QHash<QString, T> ensureIsHashOf(const QJsonObject &parent, const QString &key, const QHash<QString, T> &default_, const QString &what = "__placeholder__")
+{
+	if (!parent.contains(key)) {
+		return default_;
+	}
+	return ensureIsHashOf<T>(parent, key, Required, what);
 }
 
 // this macro part could be replaced by variadic functions that just pass on their arguments, but that wouldn't work well with IDE helpers

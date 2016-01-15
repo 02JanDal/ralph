@@ -46,8 +46,9 @@ static QString cleanGitIdentifier(const QString &id)
 	}
 }
 
-PackageSource::PackageSource(const SourceType type, QObject *parent)
-	: QObject(parent), m_type(type) {}
+PackageSource::PackageSource(const SourceType type)
+	: m_type(type) {}
+PackageSource::~PackageSource() {}
 
 void PackageSource::setName(const QString &name)
 {
@@ -58,10 +59,9 @@ void PackageSource::setName(const QString &name)
 void PackageSource::setLastUpdated()
 {
 	m_lastUpdated = QDateTime::currentDateTimeUtc();
-	emit lastUpdatedChanged(m_lastUpdated);
 }
 
-PackageSource *PackageSource::fromJson(const QJsonValue &value, QObject *parent)
+PackageSource *PackageSource::fromJson(const QJsonValue &value)
 {
 	using namespace Json;
 
@@ -75,21 +75,21 @@ PackageSource *PackageSource::fromJson(const QJsonValue &value, QObject *parent)
 
 	const QString type = ensureString(obj, "type");
 	if (type == "git") {
-		GitSinglePackageSource *source = new GitSinglePackageSource(parent);
+		GitSinglePackageSource *source = new GitSinglePackageSource();
 		source->setUrl(ensureUrl(obj, "url"));
 		source->setIdentifier(ensureString(obj, "identifier", QString("master")));
 		source->setPath(ensureString(obj, "path", QString()));
 		parseCommon(source);
 		return source;
 	} else if (type == "github") {
-		GitHubSinglePackageSource *source = new GitHubSinglePackageSource(parent);
+		GitHubSinglePackageSource *source = new GitHubSinglePackageSource();
 		source->setRepo(ensureString(obj, "repo"));
 		source->setIdentifier(ensureString(obj, "identifier", QString("master")));
 		source->setPath(ensureString(obj, "path", QString()));
 		parseCommon(source);
 		return source;
 	} else if (type == "gitrepo") {
-		GitRepoPackageSource *source = new GitRepoPackageSource(parent);
+		GitRepoPackageSource *source = new GitRepoPackageSource();
 		source->setUrl(ensureUrl(obj, "url"));
 		source->setIdentifier(ensureString(obj, "identifier", QString("master")));
 		parseCommon(source);
@@ -98,7 +98,7 @@ PackageSource *PackageSource::fromJson(const QJsonValue &value, QObject *parent)
 		throw Exception("Invalid source type: '%1'. Known types: 'git', 'github', 'gitrepo'." % type);
 	}
 }
-PackageSource *PackageSource::fromString(const QString &value, QObject *parent)
+PackageSource *PackageSource::fromString(const QString &value)
 {
 	const QStringList parts = value.split(':', QString::KeepEmptyParts);
 	if (parts.isEmpty()) {
@@ -109,7 +109,7 @@ PackageSource *PackageSource::fromString(const QString &value, QObject *parent)
 		if (parts.size() < 2) {
 			throw Exception("Invalid source specifier for type 'git'. Expected format: git:<url>[:<identifier>]");
 		}
-		GitSinglePackageSource *source = new GitSinglePackageSource(parent);
+		GitSinglePackageSource *source = new GitSinglePackageSource();
 		source->setUrl(QUrl(parts.at(1)));
 		if (parts.size() > 2) {
 			source->setIdentifier(parts.at(2));
@@ -119,7 +119,7 @@ PackageSource *PackageSource::fromString(const QString &value, QObject *parent)
 		if (parts.size() < 2) {
 			throw Exception("Invalid source specifier for type 'github'. Expected format: github:<repo>[:<identifier>]");
 		}
-		GitHubSinglePackageSource *source = new GitHubSinglePackageSource(parent);
+		GitHubSinglePackageSource *source = new GitHubSinglePackageSource();
 		source->setRepo(parts.at(1));
 		if (parts.size() > 2) {
 			source->setIdentifier(parts.at(2));
@@ -139,22 +139,8 @@ QJsonObject PackageSource::toJson() const
 					   });
 }
 
-BaseGitPackageSource::BaseGitPackageSource(const SourceType type, QObject *parent)
-	: PackageSource(type, parent) {}
-void BaseGitPackageSource::setUrl(const QUrl &url)
-{
-	if (url != m_url) {
-		m_url = url;
-		emit urlChanged(m_url);
-	}
-}
-void BaseGitPackageSource::setIdentifier(const QString &identifier)
-{
-	if (identifier != m_identifier) {
-		m_identifier = identifier;
-		emit identifierChanged(m_identifier);
-	}
-}
+BaseGitPackageSource::BaseGitPackageSource(const SourceType type)
+	: PackageSource(type) {}
 
 QString BaseGitPackageSource::toString() const
 {
@@ -174,25 +160,17 @@ QJsonObject BaseGitPackageSource::toJson() const
 	return obj;
 }
 
-GitSinglePackageSource::GitSinglePackageSource(const PackageSource::SourceType type, QObject *parent)
-	: BaseGitPackageSource(type, parent) {}
+GitSinglePackageSource::GitSinglePackageSource(const PackageSource::SourceType type)
+	: BaseGitPackageSource(type) {}
 
-GitSinglePackageSource::GitSinglePackageSource(QObject *parent)
-	: BaseGitPackageSource(GitSingle, parent) {}
-
-void GitSinglePackageSource::setPath(const QString &path)
-{
-	if (path != m_path) {
-		m_path = path;
-		emit pathChanged(m_path);
-	}
-}
+GitSinglePackageSource::GitSinglePackageSource()
+	: BaseGitPackageSource(GitSingle) {}
 
 Future<QVector<const Package *> > GitSinglePackageSource::packages() const
 {
 	return async([this]()
 	{
-		const Package *proj = Project::fromJson(Json::ensureDocument(basePath().absoluteFilePath(path())));
+		const Package *proj = Project::load(basePath().absoluteFilePath(path()));
 		return QVector<const Package *>{proj};
 	});
 }
@@ -201,10 +179,10 @@ Future<void> GitSinglePackageSource::update()
 	return async([this](Notifier notifier)
 	{
 		if (!basePath().exists()) {
-			Git::GitRepo *repo = notifier.await(Git::GitRepo::clone(basePath(), url(), this));
+			Git::GitRepo *repo = notifier.await(Git::GitRepo::clone(basePath(), url()));
 			notifier.await(repo->checkout(identifier()));
 		} else {
-			Git::GitRepo *repo = notifier.await(Git::GitRepo::open(basePath(), this));
+			Git::GitRepo *repo = notifier.await(Git::GitRepo::open(basePath()));
 			notifier.await(repo->pull(cleanGitIdentifier(identifier())));
 		}
 		setLastUpdated();
@@ -220,16 +198,12 @@ QJsonObject GitSinglePackageSource::toJson() const
 	return obj;
 }
 
-GitHubSinglePackageSource::GitHubSinglePackageSource(QObject *parent)
-	: GitSinglePackageSource(GitHubSingle, parent) {}
+GitHubSinglePackageSource::GitHubSinglePackageSource()
+	: GitSinglePackageSource(GitHubSingle) {}
 void GitHubSinglePackageSource::setRepo(const QString &repo)
 {
-	if (repo != m_repo) {
-		m_repo = repo;
-		emit repoChanged(m_repo);
-
-		setUrl(QUrl("https://github.com/" + m_repo + ".git"));
-	}
+	m_repo = repo;
+	setUrl(QUrl("https://github.com/" + m_repo + ".git"));
 }
 
 QString GitHubSinglePackageSource::toString() const
@@ -253,8 +227,8 @@ QJsonObject GitHubSinglePackageSource::toJson() const
 	return obj;
 }
 
-GitRepoPackageSource::GitRepoPackageSource(QObject *parent)
-	: BaseGitPackageSource(GitRepo, parent) {}
+GitRepoPackageSource::GitRepoPackageSource()
+	: BaseGitPackageSource(GitRepo) {}
 
 Future<QVector<const Package *> > GitRepoPackageSource::packages() const
 {
@@ -272,10 +246,10 @@ Future<void> GitRepoPackageSource::update()
 	return async([this](Notifier notifier)
 	{
 		if (!basePath().exists()) {
-			Git::GitRepo *repo = notifier.await(Git::GitRepo::clone(basePath(), url(), this));
+			Git::GitRepo *repo = notifier.await(Git::GitRepo::clone(basePath(), url()));
 			notifier.await(repo->checkout(identifier()));
 		} else {
-			Git::GitRepo *repo = notifier.await(Git::GitRepo::open(basePath(), this));
+			Git::GitRepo *repo = notifier.await(Git::GitRepo::open(basePath()));
 			notifier.await(repo->pull(cleanGitIdentifier(identifier())));
 		}
 		setLastUpdated();

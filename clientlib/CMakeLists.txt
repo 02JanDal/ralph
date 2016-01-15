@@ -23,6 +23,8 @@ set(CMAKE_AUTORCC ON)
 set(SRC
 	package/Package.h
 	package/Package.cpp
+	package/PackageDependency.h
+	package/PackageDependency.cpp
 	package/PackageDatabase.h
 	package/PackageDatabase.cpp
 	package/PackageSource.h
@@ -31,6 +33,8 @@ set(SRC
 	package/PackageMirror.cpp
 	package/PackageGroup.h
 	package/PackageGroup.cpp
+	package/PackageConfiguration.h
+	package/PackageConfiguration.cpp
 
 	package/steps/InstallationStep.h
 	package/steps/InstallationStep.cpp
@@ -43,6 +47,8 @@ set(SRC
 	project/Project.cpp
 	project/ProjectGenerator.h
 	project/ProjectGenerator.cpp
+	project/ProjectLockFile.h
+	project/ProjectLockFile.cpp
 
 	Requirement.h
 	Requirement.cpp
@@ -65,6 +71,7 @@ set(SRC
 	future/FutureWatcher.h
 	future/FutureWatcher.cpp
 	future/FutureOperators.h
+	future/AwaitTerminal.h
 	future/Promise.h
 	future/Promise.cpp
 	future/FutureData_p.h
@@ -80,7 +87,7 @@ set(SRC
 )
 
 add_library(ralph_clientlib SHARED ${SRC})
-target_include_directories(ralph_clientlib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(ralph_clientlib PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}> $<INSTALL_INTERFACE:include/ralph/clientlib>)
 target_link_libraries(ralph_clientlib PUBLIC ralph_common Qt5::Core Qt5::Network KF5::Archive libgit2 libcurl)
 
 set_source_files_properties(git/GitRepo.cpp PROPERTIES COMPILE_FLAGS -Wno-missing-field-initializers)
@@ -89,3 +96,6 @@ add_executable(tst_Future tests/Future_Test.cpp)
 target_link_libraries(tst_Future PRIVATE ralph_clientlib Qt5::Test)
 target_link_libraries(tst_Future PRIVATE pthread) # wat? why do I need this?
 add_test(NAME tst_Future COMMAND tst_Future)
+
+install(TARGETS ralph_clientlib DESTINATION lib EXPORT RalphLib COMPONENT Runtime)
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} DESTINATION include/ralph COMPONENT Development FILES_MATCHING PATTERN *.h)

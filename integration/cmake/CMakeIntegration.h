@@ -15,27 +15,19 @@
 
 #pragma once
 
-#include <QDir>
-
-#include "package/Package.h"
-
 namespace Ralph {
-namespace ClientLib {
+namespace Common {
+namespace CommandLine {
+class Result;
+}
+}
 
-class Project : public Package
-{
-public:
-	explicit Project(const QDir &dir);
-	virtual ~Project();
+namespace Integration {
+namespace CMake {
 
-	QDir dir() const { return m_dir; }
+void cmakePath();
+void cmakeLoad(const Common::CommandLine::Result &result);
 
-	static const Project *fromJson(const QJsonDocument &doc, const QDir &dir);
-	static const Project *load(const QDir &dir);
-
-private:
-	QDir m_dir;
-};
-
+}
 }
 }

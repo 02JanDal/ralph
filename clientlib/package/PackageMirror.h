@@ -38,7 +38,7 @@ public:
 
 	QJsonObject toJson() const;
 
-	static std::shared_ptr<PackageMirror> fromJson(const QJsonObject &obj);
+	static PackageMirror fromJson(const QJsonObject &obj);
 
 	RequirementPtr requirement() const { return m_requirement; }
 	void setRequirement(const RequirementPtr &requirement) { m_requirement = requirement; }

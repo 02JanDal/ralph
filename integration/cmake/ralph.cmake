@@ -1,13 +1,13 @@
-# Copyright 2016 Jan Dalheimer <jan@dalheimer.de>
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# Copyright (C) 2016 Jan Dalheimer <jan@dalheimer.de>
+# This work is free. You can redistribute it and/or modify it under the
+# terms of the Do What The Fuck You Want To Public License, Version 2,
+# as published by Sam Hocevar. See http://www.wtfpl.net/ for more details.
+
+find_program(RALPH_EXECUTABLE ralph DOC "Location of the ralph executable")
+if(NOT RALPH_EXECUTABLE)
+	message(FATAL_ERROR "Unable to find ralph. Make sure it is installed.")
+endif()
+execute_process(COMMAND ${RALPH_EXECUTABLE} integration cmake cmake_path OUTPUT_VARIABLE RALPH_CMAKE_PATH)
+mark_as_advanced(RALPH_CMAKE_PATH)
+include(${RALPH_CMAKE_PATH}/RalphHelpers.cmake)
+include(${RALPH_CMAKE_PATH}/RalphFunctions.cmake)

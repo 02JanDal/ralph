@@ -15,19 +15,28 @@
 
 #include "Project.h"
 
+#include "Json.h"
+
 namespace Ralph {
 namespace ClientLib {
 
-Project::Project(QObject *parent)
-	: Package(parent)
+Project::Project(const QDir &dir)
+	: Package(), m_dir(dir)
 {
 }
 
-const Project *Project::fromJson(const QJsonDocument &doc)
+Project::~Project() {}
+
+const Project *Project::fromJson(const QJsonDocument &doc, const QDir &dir)
 {
-	Project *project = new Project;
+	Project *project = new Project{dir};
 	Package::fromJson(doc, project);
 	return project;
+}
+
+const Project *Project::load(const QDir &dir)
+{
+	return fromJson(Json::ensureDocument(dir.absoluteFilePath("ralph.json")), dir);
 }
 
 }

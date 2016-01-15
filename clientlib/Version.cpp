@@ -22,34 +22,7 @@ namespace Ralph {
 using namespace Common;
 namespace ClientLib {
 
-VersionRequirement::VersionRequirement(QObject *parent)
-	: QObject(parent)
-{
-}
-
-void VersionRequirement::setVersion(const Version &version)
-{
-	if (version != m_version) {
-		m_version = version;
-		emit versionChanged(m_version);
-	}
-}
-void VersionRequirement::setType(const VersionRequirement::Type type)
-{
-	if (type != m_type) {
-		m_type = type;
-		emit typeChanged(m_type);
-	}
-}
-void VersionRequirement::setAllowedType(const Version::Type allowedType)
-{
-	if (m_allowedType == allowedType) {
-		return;
-	}
-
-	m_allowedType = allowedType;
-	emit allowedTypeChanged(allowedType);
-}
+VersionRequirement::VersionRequirement() {}
 
 QString VersionRequirement::toString() const
 {
@@ -68,13 +41,13 @@ QString VersionRequirement::toString() const
 	return result + m_version.toString();
 }
 
-VersionRequirement *VersionRequirement::fromString(const QString &string, QObject *parent)
+VersionRequirement VersionRequirement::fromString(const QString &string)
 {
-	VersionRequirement *version = new VersionRequirement(parent);
+	VersionRequirement version;
 
 	if (string.contains('@')) {
-		version->m_allowedTypeString = string.left(string.indexOf('@'));
-		version->setAllowedType(Version::typeFromString(version->m_allowedTypeString));
+		version.m_allowedTypeString = string.left(string.indexOf('@'));
+		version.setAllowedType(Version::typeFromString(version.m_allowedTypeString));
 	}
 
 	// if string contains an @ the index will be before the at (+1 results in after the symbol), if it doesn't
@@ -82,28 +55,28 @@ VersionRequirement *VersionRequirement::fromString(const QString &string, QObjec
 	const QString str = string.mid(string.indexOf('@')+1);
 
 	if (str.startsWith(">=")) {
-		version->setVersion(Version::fromString(str.mid(2)));
-		version->setType(GreaterEqual);
+		version.setVersion(Version::fromString(str.mid(2)));
+		version.setType(GreaterEqual);
 	} else if (str.startsWith('>')) {
-		version->setVersion(Version::fromString(str.mid(1)));
-		version->setType(Greater);
+		version.setVersion(Version::fromString(str.mid(1)));
+		version.setType(Greater);
 	} else if (str.startsWith("<=")) {
-		version->setVersion(Version::fromString(str.mid(2)));
-		version->setType(LessEqual);
+		version.setVersion(Version::fromString(str.mid(2)));
+		version.setType(LessEqual);
 	} else if (str.startsWith('<')) {
-		version->setVersion(Version::fromString(str.mid(1)));
-		version->setType(Less);
+		version.setVersion(Version::fromString(str.mid(1)));
+		version.setType(Less);
 	} else if (str.startsWith("!=")) {
-		version->setVersion(Version::fromString(str.mid(2)));
-		version->setType(NonEqual);
+		version.setVersion(Version::fromString(str.mid(2)));
+		version.setType(NonEqual);
 	} else if (str.startsWith("==")) {
-		version->setVersion(Version::fromString(str.mid(2)));
-		version->setType(Equal);
+		version.setVersion(Version::fromString(str.mid(2)));
+		version.setType(Equal);
 	} else {
-		version->setVersion(Version::fromString(str));
-		version->setType(Equal);
+		version.setVersion(Version::fromString(str));
+		version.setType(Equal);
 	}
-	if (!version->version().isValid()) {
+	if (!version.version().isValid()) {
 		throw Exception("Unable to parse version in version requirement: '%1'" % string);
 	}
 	return version;

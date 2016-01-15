@@ -15,7 +15,6 @@
 
 #pragma once
 
-#include <QObject>
 #include <QUrl>
 #include <QDir>
 #include <QDateTime>
@@ -31,13 +30,8 @@ namespace Ralph {
 namespace ClientLib {
 class Package;
 
-class PackageSource : public QObject
+class PackageSource
 {
-	Q_OBJECT
-	Q_PROPERTY(SourceType type READ type CONSTANT)
-	Q_PROPERTY(QString name READ name CONSTANT)
-	Q_PROPERTY(QDateTime lastUpdated READ lastUpdated RESET setLastUpdated NOTIFY lastUpdatedChanged)
-
 public:
 	enum SourceType
 	{
@@ -45,9 +39,9 @@ public:
 		GitSingle,
 		GitRepo
 	};
-	Q_ENUM(SourceType)
 
-	explicit PackageSource(const SourceType type, QObject *parent = nullptr);
+	explicit PackageSource(const SourceType type);
+	virtual ~PackageSource();
 
 	SourceType type() const { return m_type; }
 	virtual QString typeString() const = 0;
@@ -60,8 +54,8 @@ public:
 	void setLastUpdated();
 
 	// (de-)serialization
-	static PackageSource *fromJson(const QJsonValue &value, QObject *parent = nullptr);
-	static PackageSource *fromString(const QString &value, QObject *parent = nullptr);
+	static PackageSource *fromJson(const QJsonValue &value);
+	static PackageSource *fromString(const QString &value);
 	virtual QString toString() const { return QString(); }
 	virtual QJsonObject toJson() const;
 
@@ -74,9 +68,6 @@ public:
 	/// @internal For usage by PackageDatabase only
 	void setBasePath(const QDir &dir) { m_basePath = dir; }
 
-signals:
-	void lastUpdatedChanged(QDateTime lastUpdated);
-
 private:
 	const SourceType m_type;
 	QString m_name;
@@ -86,19 +77,15 @@ private:
 
 class BaseGitPackageSource : public PackageSource
 {
-	Q_OBJECT
-	Q_PROPERTY(QUrl url READ url WRITE setUrl NOTIFY urlChanged)
-	Q_PROPERTY(QString identifier READ identifier WRITE setIdentifier NOTIFY identifierChanged)
-
 protected:
-	explicit BaseGitPackageSource(const SourceType type, QObject *parent = nullptr);
+	explicit BaseGitPackageSource(const SourceType type);
 
 public:
 	QUrl url() const { return m_url; }
-	void setUrl(const QUrl &url);
+	void setUrl(const QUrl &url) { m_url = url; }
 
 	QString identifier() const { return m_identifier; }
-	void setIdentifier(const QString &identifier);
+	void setIdentifier(const QString &identifier) { m_identifier = identifier; }
 
 	QString toString() const override;
 	QJsonObject toJson() const override;
@@ -114,27 +101,21 @@ private:
 
 class GitSinglePackageSource : public BaseGitPackageSource
 {
-	Q_OBJECT
-	Q_PROPERTY(QString path READ path WRITE setPath NOTIFY pathChanged)
-
 protected:
-	explicit GitSinglePackageSource(const SourceType type, QObject *parent = nullptr);
+	explicit GitSinglePackageSource(const SourceType type);
 
 public:
-	explicit GitSinglePackageSource(QObject *parent = nullptr);
+	explicit GitSinglePackageSource();
 
 	QString typeString() const override { return "git"; }
 
 	QString path() const { return m_path; }
-	void setPath(const QString &path);
+	void setPath(const QString &path) { m_path = path; }
 
 	Future<QVector<const Package *>> packages() const override;
 	Future<void> update() override;
 
 	QJsonObject toJson() const override;
-
-signals:
-	void pathChanged(const QString &path);
 
 private:
 	QString m_path;
@@ -142,11 +123,8 @@ private:
 
 class GitHubSinglePackageSource : public GitSinglePackageSource
 {
-	Q_OBJECT
-	Q_PROPERTY(QString repo READ repo WRITE setRepo NOTIFY repoChanged)
-
 public:
-	explicit GitHubSinglePackageSource(QObject *parent = nullptr);
+	explicit GitHubSinglePackageSource();
 
 	QString repo() const { return m_repo; }
 	void setRepo(const QString &repo);
@@ -155,9 +133,6 @@ public:
 
 	QString toString() const override;
 	QJsonObject toJson() const override;
-
-signals:
-	void repoChanged(const QString &repo);
 
 private:
 	QString m_repo;
@@ -168,10 +143,8 @@ private:
 
 class GitRepoPackageSource : public BaseGitPackageSource
 {
-	Q_OBJECT
-
 public:
-	explicit GitRepoPackageSource(QObject *parent = nullptr);
+	explicit GitRepoPackageSource();
 
 	QString typeString() const override { return "gitrepo"; }
 

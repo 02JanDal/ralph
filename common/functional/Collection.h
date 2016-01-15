@@ -87,6 +87,20 @@ public:
 		}));
 	}
 
+	template <typename Func>
+	inline auto sort(Func &&func)
+	{
+		Type col = m_collection;
+		std::sort(std::begin(col), std::end(col), std::forward<Func>(func));
+		return CollectionImpl(col);
+	}
+	inline auto sort()
+	{
+		Type col = m_collection;
+		std::sort(std::begin(col), std::end(col));
+		return CollectionImpl(col);
+	}
+
 	inline TOne max() const
 	{
 		return reduce(&Max<TOne>);

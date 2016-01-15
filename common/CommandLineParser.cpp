@@ -54,6 +54,7 @@ DEC_EXCEPTION(MissingRequiredArgument);
 DEC_EXCEPTION(MalformedOption);
 DEC_EXCEPTION(MissingPositionalArgument);
 DEC_EXCEPTION(InvalidOptionValue);
+DEC_EXCEPTION(RepeatedOption);
 DEC_EXCEPTION(Build);
 
 int Parser::process(int argc, char **argv)
@@ -127,6 +128,10 @@ void Parser::printVersion()
 	std::exit(0);
 }
 
+static bool compareCommands(const Command &a, const Command &b)
+{
+	return a.name() < b.name();
+}
 QString formatPositionalArgument(const PositionalArgument &arg)
 {
 	QString result;
@@ -162,16 +167,18 @@ static void printUsageFor(const QStringList &parents, const bool hasOptions, con
 		std::cout << '\n';
 	}
 
-	for (const Command &sub : command.subcommands()) {
-		printUsageFor(parents + QStringList(sub.name()), hasOptions || !command.options().isEmpty(), posArgs, sub, maxWidth);
+	for (const Command &sub : Functional::collection(command.subcommands().values()).sort(&compareCommands).get()) {
+		if (!sub.isHidden()) {
+			printUsageFor(parents + QStringList(sub.name()), hasOptions || !command.options().isEmpty(), posArgs, sub, maxWidth);
+		}
 	}
 }
 static void printSubcommandsTable(const QVector<Command> &commands, const int maxWidth)
 {
-	const QVector<QVector<QString>> rows = Functional::map(commands, [](const Command &command)
-	{
-		return QVector<QString>({command.name(), "-", command.summary()});
-	});
+	const QVector<QVector<QString>> rows = Functional::collection(commands)
+			.filter([](const Command &command) { return !command.isHidden(); })
+			.sort(&compareCommands)
+			.map([](const Command &command) { return QVector<QString>({command.name(), "-", command.summary()}); });
 	std::cout << "    " << Term::table(rows, {10, 1, 10}, maxWidth, 4) << '\n';
 }
 static void printOptionsTable(const QVector<Option> &options, const int maxWidth)
@@ -270,7 +277,7 @@ Result Parser::parse(const QStringList &arguments) const
 	static const QRegularExpression singleOptionExpression("^-(?<names>[A-Za-z0-9]+)(?<valuecont>=(?<value>.*))?$");
 
 	struct {
-		QHash<QString, QString> options;
+		QHash<QString, QVector<QString>> options;
 		QHash<QString, QVector<QString>> arguments;
 		QVector<QString> commandChain;
 	} result;
@@ -308,13 +315,16 @@ Result Parser::parse(const QStringList &arguments) const
 			throw UnexpectedArgumentException("Didn't expect an argument in " + (it ? it->peekPrevious() : name), result.commandChain);
 		} else if (!hasValue && option.hasArgument() && option.isArgumentRequired()) {
 			if (it && it->hasNext() && !it->peekNext().startsWith('-')) {
-				result.options.insert(option.names().first(), it->next());
+				result.options[option.names().first()].append(it->next());
 				return;
 			} else {
 				throw MissingRequiredArgumentException("Missing required argument to -%1%2" % QString(name.size() > 1 ?  "-" : "") % name, result.commandChain);
 			}
 		}
-		result.options.insert(option.names().first(), value);
+		if (result.options.contains(option.names().first()) && !option.doesAllowMultiple()) {
+			throw RepeatedOptionException("Received option -%1%2 multiple times, only once is allowed" % QString(name.size() > 1 ? "-" : "") % name, result.commandChain);
+		}
+		result.options[option.names().first()].append(value);
 	};
 	auto handleArguments = [&result, &haveStartedPositionals, &positionals](const QVector<QString> &args)
 	{
@@ -379,7 +389,7 @@ Result Parser::parse(const QStringList &arguments) const
 
 	for (const Option &opt : options) {
 		if (!result.options.contains(opt.names().first()) && opt.hasArgument() && !opt.defaultValue().isNull()) {
-			result.options.insert(opt.names().first(), opt.defaultValue());
+			result.options[opt.names().first()].append(opt.defaultValue());
 		}
 	}
 
@@ -403,12 +413,14 @@ void Parser::handle(const Result &result) const
 
 	for (const QString &option : result.options().keys()) {
 		const Option &opt = result.possibleOptions().value(option);
-		if (!opt.allowedValues().isEmpty() && !opt.allowedValues().contains(result.value(option))) {
-			throw InvalidOptionValueException(QString("The value to -%1%2 is not allowed; valid values: %3")
-											  .arg(option.size() == 1 ? "-" : "")
-											  .arg(option)
-											  .arg(opt.allowedValues().toList().join(", ")),
-											  result.commandChain());
+		for (const QString &value : result.values(option)) {
+			if (!opt.allowedValues().isEmpty() && !opt.allowedValues().contains(value)) {
+				throw InvalidOptionValueException(QString("The value to -%1%2 is not allowed; valid values: %3")
+												  .arg(option.size() == 1 ? "-" : "")
+												  .arg(option)
+												  .arg(opt.allowedValues().toList().join(", ")),
+												  result.commandChain());
+			}
 		}
 		if (!opt.isEarlyExit()) {
 			opt.call(result);
@@ -424,14 +436,14 @@ void Parser::handle(const Result &result) const
 template <>
 bool Result::value<bool>(const QString &key) const
 {
-	const QString value = m_options.value(key);
-	if (m_possibleOptions.value(key).argument().isNull()) {
+	const QString val = value(key);
+	if (!m_possibleOptions.value(key).hasArgument()) {
 		if (key.startsWith("no-") || key.startsWith("disable-")) {
 			return !isSet(key);
 		} else {
 			return isSet(key);
 		}
-	} else if (value == "1" || value.toLower() == "on" || value.toLower() == "true") {
+	} else if (val == "1" || val.toLower() == "on" || val.toLower() == "true") {
 		return true;
 	} else {
 		return false;

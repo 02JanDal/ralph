@@ -15,6 +15,8 @@
 
 #include "ProjectGenerator.h"
 
+#include <QCoreApplication>
+
 #include "Project.h"
 #include "FileSystem.h"
 #include "git/GitRepo.h"
@@ -28,8 +30,8 @@ Future<Project *> ProjectGenerator::generate() const
 {
 	return async([this](Notifier notifier)
 	{
-		Project *project = new Project();
 		const QDir dir = QDir::current().absoluteFilePath(m_directory.isEmpty() ? m_name : m_directory);
+		Project *project = new Project(dir);
 		if (dir.exists()) {
 			throw Exception("Directory %1 already exists" % dir.absolutePath());
 		}
@@ -38,7 +40,7 @@ Future<Project *> ProjectGenerator::generate() const
 		}
 		try {
 			if (m_vcs == "git") {
-				Git::GitRepo *repo = notifier.await(Git::GitRepo::init(dir, project));
+				Git::GitRepo *repo = notifier.await(Git::GitRepo::init(dir));
 				notifier.status("Git repository has been initialized in %1" % repo->dir().absolutePath());
 				copyTemplate("gitignore", dir.absoluteFilePath(".gitignore"));
 			}
@@ -47,6 +49,15 @@ Future<Project *> ProjectGenerator::generate() const
 			}
 			copyTemplate("ralph.json", dir.absoluteFilePath("ralph.json"));
 			copyTemplate("main.cpp", dir.absoluteFilePath("main.cpp"));
+
+			if (QDir(__FILE__).exists("../../../integration/cmake/ralph.cmake")) {
+				FS::copy(QDir(__FILE__).absoluteFilePath("../../../integration/cmake/ralph.cmake"), dir.absoluteFilePath("cmake/ralph.cmake"));
+			} else {
+				FS::copy(QDir(qApp->applicationDirPath()).absoluteFilePath("../lib/cmake/ralph.cmake"), dir.absoluteFilePath("cmake/ralph.cmake"));
+			}
+
+			notifier.status("Now run 'ralph project install' in %1" % dir.absolutePath());
+
 			if (m_bs == "cmake") {
 				FS::ensureExists(dir.absoluteFilePath("build"));
 				notifier.status("Now run 'cmake .. && cmake --build .' in %1" % dir.absoluteFilePath("build"));

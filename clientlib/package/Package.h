@@ -15,101 +15,52 @@
 
 #pragma once
 
-#include <QObject>
 #include <QVector>
+#include <QHash>
 #include <memory>
 
 #include "Version.h"
+#include "PackageMirror.h"
+#include "PackageDependency.h"
 
 class QJsonDocument;
+class QJsonObject;
 
 namespace Ralph {
 namespace ClientLib {
-class PackageSource;
-class PackageMirror;
-using RequirementPtr = std::shared_ptr<class Requirement>;
 
-class PackageDependency : public QObject
+class Package
 {
-	Q_OBJECT
-	Q_PROPERTY(QString package READ package WRITE setPackage NOTIFY packageChanged)
-	Q_PROPERTY(VersionRequirement *version READ version WRITE setVersion NOTIFY versionChanged)
-	Q_PROPERTY(RequirementPtr requirements READ requirements WRITE setRequirements NOTIFY requirementsChanged)
-	Q_PROPERTY(bool optional READ isOptional WRITE setOptional NOTIFY optionalChanged)
-	Q_PROPERTY(PackageSource *source READ source WRITE setSource NOTIFY sourceChanged)
-
 public:
-	explicit PackageDependency(QObject *parent = nullptr);
-	explicit PackageDependency(const QString &package, QObject *parent = nullptr);
+	explicit Package();
+	virtual ~Package();
 
-	QString package() const { return m_package; }
-	void setPackage(const QString &package);
-
-	VersionRequirement *version() const { return m_version; }
-	void setVersion(VersionRequirement *version);
-
-	RequirementPtr requirements() const { return m_requirements; }
-	void setRequirements(const RequirementPtr &requirements);
-
-	bool isOptional() const { return m_optional; }
-	void setOptional(const bool optional);
-
-	PackageSource *source() const { return m_source; }
-	void setSource(PackageSource *source);
-
-signals:
-	void packageChanged(const QString &package);
-	void versionChanged(VersionRequirement *version);
-	void requirementsChanged(const RequirementPtr &os);
-	void optionalChanged(const bool optional);
-	void sourceChanged(const PackageSource *source);
-
-private:
-	QString m_package;
-	VersionRequirement *m_version;
-	RequirementPtr m_requirements;
-	QVector<QString> m_configurations;
-	bool m_optional;
-	PackageSource *m_source;
-};
-
-class Package : public QObject
-{
-	Q_OBJECT
-	Q_PROPERTY(QString name READ name WRITE setName NOTIFY nameChanged)
-	Q_PROPERTY(Version version READ version WRITE setVersion NOTIFY versionChanged)
-	Q_PROPERTY(QVector<PackageDependency *> dependencies READ dependencies WRITE setDependencies NOTIFY dependenciesChanged)
-	Q_PROPERTY(QVector<std::shared_ptr<PackageMirror>> mirrors READ mirrors WRITE setMirrors NOTIFY mirrorsChanged)
-
-public:
-	explicit Package(QObject *parent = nullptr);
-
+public: // properties
 	QString name() const { return m_name; }
-	void setName(const QString &name);
+	void setName(const QString &name) { m_name = name; }
 
 	Version version() const { return m_version; }
-	void setVersion(const Version &version);
+	void setVersion(const Version &version) { m_version = version; }
 
-	QVector<PackageDependency *> dependencies() const { return m_dependencies; }
-	void setDependencies(const QVector<PackageDependency *> &dependencies);
+	QVector<PackageDependency> dependencies() const { return m_dependencies; }
+	void setDependencies(const QVector<PackageDependency> &dependencies) { m_dependencies = dependencies; }
 
-	virtual QJsonObject toJson() const;
+	QVector<PackageMirror> mirrors() const { return m_mirrors; }
+	void setMirrors(QVector<PackageMirror> mirrors) { m_mirrors = mirrors; }
+
+	QHash<QString, QString> paths() const { return m_paths; }
+	void setPaths(const QHash<QString, QString> &paths) { m_paths = paths; }
+
+public: //serialization
+	QJsonObject toJson() const;
 	static const Package *fromJson(const QJsonDocument &doc, Package *package = nullptr);
-
-	QVector<std::shared_ptr<PackageMirror>> mirrors() const { return m_mirrors; }
-	void setMirrors(QVector<std::shared_ptr<PackageMirror>> mirrors);
-
-signals:
-	void nameChanged(const QString &name);
-	void versionChanged(const Version &version);
-	void dependenciesChanged(const QVector<PackageDependency *> &dependencies);
-	void mirrorsChanged(QVector<std::shared_ptr<PackageMirror>> mirrors);
 
 private:
 	QString m_name;
 	Version m_version;
-	QVector<PackageDependency *> m_dependencies;
-	QVector<std::shared_ptr<PackageMirror>> m_mirrors;
+	QVector<PackageDependency> m_dependencies;
+	QVector<PackageMirror> m_mirrors;
+	QHash<QString, QString> m_paths;
 };
 
 }

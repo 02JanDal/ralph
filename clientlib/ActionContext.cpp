@@ -25,6 +25,11 @@ InstallContextItem::InstallContextItem(const QDir &target, const QDir &build)
 
 InstallContextItem::~InstallContextItem() {}
 
+ConfigurationContextItem::ConfigurationContextItem(const PackageConfiguration &conf)
+	: config(conf) {}
+
+ConfigurationContextItem::~ConfigurationContextItem() {}
+
 }
 }
 

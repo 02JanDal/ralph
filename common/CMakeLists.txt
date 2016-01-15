@@ -47,9 +47,12 @@ set(SRC
 )
 
 add_library(ralph_common STATIC ${SRC})
-target_include_directories(ralph_common PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(ralph_common PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}> $<INSTALL_INTERFACE:include/ralph/common>)
 target_link_libraries(ralph_common PUBLIC Qt5::Core Qt5::Network)
 
 add_executable(tst_Functional tests/Functional_Test.cpp)
 target_link_libraries(tst_Functional ralph_common)
 add_test(NAME tst_Functional COMMAND tst_Functional)
+
+install(TARGETS ralph_common DESTINATION lib EXPORT RalphLib COMPONENT Development)
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} DESTINATION include/ralph COMPONENT Development FILES_MATCHING PATTERN *.h)

@@ -21,7 +21,7 @@
 
 #include <iostream>
 
-#include "future/FutureWatcher.h"
+#include "future/AwaitTerminal.h"
 #include "project/ProjectGenerator.h"
 #include "project/Project.h"
 #include "package/PackageSource.h"
@@ -40,48 +40,9 @@ using namespace Common;
 namespace Client {
 
 namespace {
-template <typename T>
-T awaitTerminal(const Future<T> &future)
-{
-	const int maxWidth = Term::currentWidth() == 0 ? 120 : Term::currentWidth();
-
-	FutureWatcher<T> watcher(future);
-	FutureWatcher<T>::connect(&watcher, &FutureWatcher<T>::status, [maxWidth](const QString &str)
-	{
-		std::cout << Term::wrap(str, maxWidth - 6) << std::endl;
-	});
-	FutureWatcher<T>::connect(&watcher, &FutureWatcher<T>::progress, [maxWidth](const std::size_t current, const std::size_t total)
-	{
-		if (Term::isTty()) {
-			const int percent = int(std::floor(100 * qreal(current) / qreal(total)));
-			std::cout << Term::save() << Term::move(Term::Up) << Term::move(Term::Right, maxWidth - 6) << "[";
-			if (percent < 10) {
-				std::cout << "  ";
-			} else if (percent < 100) {
-				std::cout << " ";
-			}
-			std::cout << percent << "%]" << Term::restore() << std::flush;
-		}
-	});
-	return await(future);
-}
-
-QString databasePath(const QString &type)
-{
-	if (type == "user") {
-		return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-#ifdef Q_OS_LINUX
-	} else if (type == "system") {
-		return "/var/ralph";
-#endif
-	} else {
-		return QString();
-	}
-}
-
 Future<PackageDatabase *> createDatabase(const QString &type)
 {
-	const QString path = databasePath(type);
+	const QString path = PackageDatabase::databasePath(type);
 	return PackageDatabase::get(path);
 }
 
@@ -112,7 +73,7 @@ const Package *queryPackage(const PackageDatabase *db, const QString &query)
 {
 	const int splitIndex = query.indexOf('@');
 	const QString name = query.mid(0, splitIndex);
-	const VersionRequirement *version = splitIndex == -1 ? nullptr : VersionRequirement::fromString(query.mid(splitIndex + 1));
+	const VersionRequirement version = splitIndex == -1 ? VersionRequirement() : VersionRequirement::fromString(query.mid(splitIndex + 1));
 
 	QVector<const Package *> candidates = db->findPackages(name, version);
 	std::sort(candidates.begin(), candidates.end(), [](const Package *a, const Package *b) { return a->version() < b->version(); });
@@ -158,16 +119,18 @@ void State::removePackage(const CommandLine::Result &result)
 
 	Functional::collection(result.argumentMulti("packages"))
 			.map([db](const QString &query) { return queryPackage(db, query); })
-			.each([db, group](const Package *pkg) { awaitTerminal(db->group(group)->remove(pkg)); });
+			.each([db, group](const Package *pkg) { awaitTerminal(db->group(group).remove(pkg)); });
 }
 void State::installPackage(const CommandLine::Result &result)
 {
 	PackageDatabase *db = awaitTerminal(createDB());
 	const QString group = result.value("group");
 
+	const PackageConfiguration config = PackageConfiguration::fromItems(result.values("config"));
+
 	Functional::collection(result.argumentMulti("packages"))
 			.map([db](const QString &query) { return queryPackage(db, query); })
-			.each([db, group](const Package *pkg) { awaitTerminal(db->group(group)->install(pkg)); });
+			.each([db, group, config](const Package *pkg) { awaitTerminal(db->group(group).install(pkg, config)); });
 }
 void State::checkPackage(const CommandLine::Result &result)
 {
@@ -176,7 +139,7 @@ void State::checkPackage(const CommandLine::Result &result)
 
 	Functional::collection(result.argumentMulti("packages"))
 			.map([db](const QString &query) { return queryPackage(db, query); })
-			.each([db, group](const Package *pkg) { if (!db->group(group)->isInstalled(pkg)) { throw Exception("%1 is not installed" % pkg->name()); } });
+			.each([db, group](const Package *pkg) { if (!db->group(group).isInstalled(pkg)) { throw Exception("%1 is not installed" % pkg->name()); } });
 }
 void State::searchPackages(const CommandLine::Result &result)
 {
@@ -194,7 +157,7 @@ void State::setDir(const QString &dir)
 
 void State::verifyProject()
 {
-	const Project *project = Project::fromJson(Json::ensureDocument(QDir(m_dir).absoluteFilePath("ralph.json")));
+	const Project *project = Project::load(m_dir);
 	std::cout << "The project " << Common::Term::style(Common::Term::Bold, project->name()) << " in " << m_dir << " is valid!\n";
 }
 void State::newProject(const CommandLine::Result &result)
@@ -206,6 +169,16 @@ void State::newProject(const CommandLine::Result &result)
 	generator.setDirectory(m_dir);
 	Project *project = awaitTerminal(generator.generate());
 	std::cout << "The project " << project->name().toLocal8Bit().constData() << " was created successfully!\n";
+}
+void State::installProject(const CommandLine::Result &result)
+{
+	Q_UNUSED(result)
+	// TODO project install
+}
+void State::updateProject(const CommandLine::Result &result)
+{
+	Q_UNUSED(result)
+	// TODO project update
 }
 
 void State::updateSources(const CommandLine::Result &result)
@@ -299,12 +272,12 @@ void State::showSource(const CommandLine::Result &result)
 
 void State::info()
 {
-	const QString systemPath = databasePath("system");
+	const QString systemPath = PackageDatabase::databasePath("system");
 	if (!systemPath.isEmpty()) {
 		std::cout << "Available database location: system at " << systemPath << '\n';
 	}
 
-	const QString userPath = databasePath("user");
+	const QString userPath = PackageDatabase::databasePath("user");
 	if (!userPath.isEmpty()) {
 		std::cout << "Available database location: user at " << userPath << '\n';
 	}
@@ -312,47 +285,7 @@ void State::info()
 
 Future<PackageDatabase *> State::createDB()
 {
-	return async([this](Notifier notifier) -> PackageDatabase *
-	{
-		if (!m_db) {
-			const QString userDir = databasePath("user");
-			const QString systemDir = databasePath("system");
-
-			PackageDatabase *system = systemDir.isNull() ? nullptr : notifier.await(PackageDatabase::get(databasePath("system")));
-			PackageDatabase *user = userDir.isEmpty() ? nullptr : notifier.await(PackageDatabase::get(userDir, {system}));
-
-#ifdef Ralph_DEFAULT_REPO
-			if (system && !system->isReadonly() && system->sources().isEmpty()) {
-				await()
-			} else if (user && !user->isReadonly() && user->sources().isEmpty()) {
-
-			}
-#endif
-
-			// system -> user -> local, if no user db is available, but a system db is, it's system -> local
-			PackageDatabase *global = (system && !user) ? system : user;
-
-			if (system) {
-				std::cout << "Using database: system\n";
-			}
-			if (user) {
-				std::cout << "Using database: user\n";
-			}
-
-			if (!m_dir.isNull()) {
-				m_db = notifier.await(PackageDatabase::get(m_dir, {global}));
-				std::cout << "Using database: project\n";
-			} else {
-				m_db = global;
-			}
-
-			if (!m_db) {
-				std::cerr << "Error: Unable to load any package database\n";
-				exit(1);
-			}
-		}
-		return m_db;
-	});
+	return PackageDatabase::create(QDir(m_dir).absoluteFilePath("vendor"));
 }
 
 }

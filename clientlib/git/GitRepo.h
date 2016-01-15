@@ -15,7 +15,6 @@
 
 #pragma once
 
-#include <QObject>
 #include <QDir>
 #include <QUrl>
 #include <functional>
@@ -110,17 +109,14 @@ private:
 	QString m_usernameFromUrl;
 };
 
-class GitRepo : public QObject
+class GitRepo
 {
-	Q_OBJECT
-	Q_PROPERTY(QDir dir READ dir CONSTANT)
-
 public:
-	explicit GitRepo(const QDir &dir, QObject *parent = nullptr);
+	explicit GitRepo(const QDir &dir);
 
-	static Future<GitRepo *> init(const QDir &dir, QObject *parent = nullptr);
-	static Future<GitRepo *> open(const QDir &dir, QObject *parent = nullptr);
-	static Future<GitRepo *> clone(const QDir &dir, const QUrl &url, QObject *parent = nullptr);
+	static Future<GitRepo *> init(const QDir &dir);
+	static Future<GitRepo *> open(const QDir &dir);
+	static Future<GitRepo *> clone(const QDir &dir, const QUrl &url);
 
 	QDir dir() const { return m_dir; }
 

@@ -63,6 +63,9 @@ public:
 	bool isEarlyExit() const { return m_earlyExit; }
 	Option &setEarlyExit(const bool earlyExit) { m_earlyExit = earlyExit; return *this; }
 
+	bool doesAllowMultiple() const { return m_allowMultiple; }
+	Option &setAllowMultiple(const bool allowMultiple) { m_allowMultiple = allowMultiple; return *this; }
+
 	QSet<QString> allowedValues() const { return m_allowedValues; }
 	Option &setAllowedValues(const QSet<QString> &values) { m_allowedValues = values; return *this; }
 
@@ -101,6 +104,7 @@ private:
 	QString m_defaultValue;
 	bool m_argumentRequired = true;
 	bool m_earlyExit = false;
+	bool m_allowMultiple = false;
 	QSet<QString> m_allowedValues;
 	std::function<void(const Result &)> m_callback;
 };
@@ -155,6 +159,9 @@ public:
 	Command &addCommandAlias(const QString &alias, const QString &commandPath) { return addCommandAlias(alias, commandPath.split(' ').toVector()); }
 	Command &addCommandAlias(const QString &alias, const QVector<QString> &commandPath) { m_commandAliases.insert(alias, commandPath); return *this; }
 
+	bool isHidden() const { return m_hidden; }
+	Command &setHidden(const bool hidden = true) { m_hidden = hidden; return *this; }
+
 	template <typename Class, typename Func>
 	Command &then(Class &object, Func &&func)
 	{
@@ -197,6 +204,7 @@ private:
 	QVector<PositionalArgument> m_arguments;
 	QHash<QString, Command> m_subcommands;
 	QHash<QString, QVector<QString>> m_commandAliases;
+	bool m_hidden = false;
 
 	std::function<void(const Result &)> m_callback;
 };
@@ -216,7 +224,7 @@ inline Command &operator<<(Command &command, const Option &option)
 class Result
 {
 public:
-	explicit Result(const QHash<QString, QString> &options,
+	explicit Result(const QHash<QString, QVector<QString>> &options,
 					const QHash<QString, QVector<QString>> &arguments,
 					const QVector<QString> &commandChain,
 					const QHash<QString, Option> &possibleOptions,
@@ -224,15 +232,17 @@ public:
 		: m_options(options), m_arguments(arguments), m_commandChain(commandChain), m_possibleOptions(possibleOptions), m_possiblePositionals(possiblePositionals) {}
 
 public: // options
-	QHash<QString, QString> options() const { return m_options; }
+	QHash<QString, QVector<QString>> options() const { return m_options; }
 	QHash<QString, Option> possibleOptions() const { return m_possibleOptions; }
 
 	bool isSet(const QString &key) const { return m_options.contains(key); }
 	bool contains(const QString &key) const { return m_options.contains(key); }
 
-	QString value(const QString &key) const { return m_options.value(key); }
+	QString value(const QString &key) const { return m_options.value(key, QVector<QString>(1)).first(); }
 	template <typename T>
-	T value(const QString &key) const { return detail::convert(m_options.value(key), detail::Type<T>()); }
+	T value(const QString &key) const { return detail::convert(value(key), detail::Type<T>()); }
+
+	QVector<QString> values(const QString &key) const { return m_options.value(key); }
 
 public: // arguments
 	QHash<QString, QVector<QString>> arguments() const { return m_arguments; }
@@ -240,7 +250,7 @@ public: // arguments
 
 	bool hasArgument(const QString &name) const { return m_arguments.contains(name); }
 
-	QString argument(const QString &key) const { return m_arguments.value(key).first(); }
+	QString argument(const QString &key) const { return m_arguments.value(key, QVector<QString>(1)).first(); }
 	QVector<QString> argumentMulti(const QString &key) const { return m_arguments.value(key); }
 	template <typename T>
 	T argument(const QString &key) const { return detail::convert(argument(key), detail::Type<T>()); }
@@ -249,7 +259,7 @@ public: // other
 	QVector<QString> commandChain() const { return m_commandChain; }
 
 private:
-	QHash<QString, QString> m_options;
+	QHash<QString, QVector<QString>> m_options;
 	QHash<QString, QVector<QString>> m_arguments;
 	QVector<QString> m_commandChain;
 	QHash<QString, Option> m_possibleOptions;

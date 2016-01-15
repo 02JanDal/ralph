@@ -108,6 +108,7 @@ QByteArray FS::read(const QString &filename)
 
 void FS::copy(const QString &from, const QString &to)
 {
+	FS::ensureExists(QFileInfo(to).dir());
 	if (exists(to))
 	{
 		remove(to);

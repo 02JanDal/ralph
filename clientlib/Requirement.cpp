@@ -17,6 +17,7 @@
 
 #include "Json.h"
 #include "Functional.h"
+#include "ActionContext.h"
 
 namespace Ralph {
 namespace ClientLib {
@@ -32,8 +33,8 @@ QVector<Requirement::Ptr> Requirement::fromJson(const QJsonArray &array)
 		const QString type = ensureString(obj, "type", obj.keys().first());
 		if (type == "os") {
 			return std::make_shared<OsRequirement>(ensureString(obj, "os"));
-		} else if (type == "configuration") {
-			return std::make_shared<ConfigurationRequirement>(ensureString(obj, "config"));
+		} else if (type == "buildType") {
+			return std::make_shared<BuildTypeRequirement>(ensureString(obj, "config"));
 		} else if (type == "and") {
 			return std::make_shared<AndRequirement>(fromJson(ensureArray(obj, "and")));
 		} else if (type == "or") {
@@ -64,15 +65,17 @@ const OsRequirement::Os OsRequirement::m_currentOs =
 		;
 OsRequirement::OsRequirement(const QString &string)
 	: m_os(fromString(string)) {}
-QJsonValue OsRequirement::toJson() const
+QJsonObject OsRequirement::toJson() const
 {
+	QJsonValue value;
 	switch (m_os)
 	{
-	case Linux: return "linux";
-	case OSX: return "osx";
-	case Windows: return "windows";
-	case Invalid: return QJsonValue();
+	case Linux: value = "linux"; break;
+	case OSX: value = "osx"; break;
+	case Windows: value = "windows"; break;
+	case Invalid: value = QJsonValue(); break;
 	}
+	return QJsonObject({qMakePair(QStringLiteral("os"), value)});
 }
 OsRequirement::Os OsRequirement::fromString(const QString &str)
 {
@@ -87,34 +90,46 @@ OsRequirement::Os OsRequirement::fromString(const QString &str)
 	}
 }
 
-QJsonValue AndRequirement::toJson() const
+QJsonObject AndRequirement::toJson() const
 {
-	return Requirement::toJson(m_children);
+	return QJsonObject({qMakePair(QStringLiteral("os"), Requirement::toJson(m_children))});
 }
-bool AndRequirement::isSatisfied() const
+bool AndRequirement::isSatisfied(const ActionContext &ctxt) const
 {
 	return m_children.empty() ||
 			std::all_of(std::begin(m_children), std::end(m_children),
-						[](const Requirement::Ptr &ptr) { return ptr->isSatisfied(); });
+						[ctxt](const Requirement::Ptr &ptr) { return ptr->isSatisfied(ctxt); });
 }
 
-QJsonValue OrRequirement::toJson() const
+QJsonObject OrRequirement::toJson() const
 {
-	return Requirement::toJson(m_children);
+	return QJsonObject({qMakePair(QStringLiteral("os"), Requirement::toJson(m_children))});
 }
-bool OrRequirement::isSatisfied() const
+bool OrRequirement::isSatisfied(const ActionContext &ctxt) const
 {
 	return m_children.empty() ||
 			std::any_of(std::begin(m_children), std::end(m_children),
-						[](const Requirement::Ptr &ptr) { return ptr->isSatisfied(); });
+						[ctxt](const Requirement::Ptr &ptr) { return ptr->isSatisfied(ctxt); });
 }
 
-ConfigurationRequirement::ConfigurationRequirement(const QString &configuration)
-	: m_configuration(configuration) {}
+BuildTypeRequirement::BuildTypeRequirement(const QString &configuration)
+	: m_configuration(QString(configuration).toLower()) {}
 
-QJsonValue ConfigurationRequirement::toJson() const
+QJsonObject BuildTypeRequirement::toJson() const
 {
-	return m_configuration;
+	return QJsonObject({qMakePair(QStringLiteral("os"), m_configuration)});
+}
+
+bool BuildTypeRequirement::isSatisfied(const ActionContext &ctxt) const
+{
+	const PackageConfiguration::BuildTypes type = ctxt.get<ConfigurationContextItem>().config.buildType();
+	if (m_configuration == "debug" && type == PackageConfiguration::Debug) {
+		return true;
+	} else if (m_configuration == "release" && type == PackageConfiguration::Release) {
+		return true;
+	} else {
+		return false;
+	}
 }
 
 }

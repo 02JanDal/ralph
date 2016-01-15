@@ -38,7 +38,7 @@ install will be done when running CMake.
 	project(example1)
 
 	# ralph.cmake (can be included in project) checks to make sure ralph is installed and
-	# includes the cmake file(s) with the actual functions
+	# includes the cmake file(s) with the actual content.
 	include(ralph)
 
 	# A call to ralph_find_package will ensure that the package is installed and available
@@ -57,24 +57,24 @@ install will be done when running CMake.
 	project(example2)
 
 	# ralph-load.cmake (can be included in project) checks to make sure ralph is installed
-	# and includes the cmake file(s) with the actual content. Those will look in the
-	# current directory (fallback to the project directory) for a file called ralph.json,
-	# which should contain the required packages, and download and install any missing.
-	# It will additionally call find_package on all of them for you.
-	include(ralph-load)
+	# and includes the cmake file(s) with the actual content.
+	# ralph_load() will look in the current directory (fallback to the project directory or
+	# the root source directory) for ralph.json, which contains the required packages,
+	# and download and install any missing. It will additionally call find_package on all
+	# of them for you.
+	include(ralph)
+	ralph_load()
 
 # Usage: Raw
 
 Install the dependencies specified in ralph.json:
 
-	ralph --project --install
-	ralph -pi
+	ralph project install
 
 Install a given package (latest stable version):
 
-	ralph --install RapidJSON
-	ralph -i RapidJSON
+	ralph install RapidJSON
 
 Install a given package with version requirement:
 
-	ralph --install -v
+	ralph install RapidJSON@1.0.2

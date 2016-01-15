@@ -33,22 +33,22 @@ void initGit()
 
 std::function<GitCredentialResponse(const GitCredentialQuery &)> GitRepo::m_credentialsFunc;
 
-GitRepo::GitRepo(const QDir &dir, QObject *parent)
-	: QObject(parent), m_dir(dir)
+GitRepo::GitRepo(const QDir &dir)
+	: m_dir(dir)
 {
 	initGit();
 }
 
-Future<GitRepo *> GitRepo::init(const QDir &dir, QObject *parent)
+Future<GitRepo *> GitRepo::init(const QDir &dir)
 {
-	return async([dir, parent](Notifier)
+	return async([dir](Notifier)
 	{
 		initGit();
 		if (!dir.mkpath(dir.absolutePath())) {
 			throw Exception("Unable to create directory to init");
 		}
 
-		std::unique_ptr<GitRepo> repo = std::make_unique<GitRepo>(dir, parent);
+		std::unique_ptr<GitRepo> repo = std::make_unique<GitRepo>(dir);
 
 		git_repository_init_options opts = GIT_REPOSITORY_INIT_OPTIONS_INIT;
 		opts.flags |= GIT_REPOSITORY_INIT_MKPATH;
@@ -59,9 +59,9 @@ Future<GitRepo *> GitRepo::init(const QDir &dir, QObject *parent)
 	});
 }
 
-Future<GitRepo *> GitRepo::open(const QDir &dir, QObject *parent)
+Future<GitRepo *> GitRepo::open(const QDir &dir)
 {
-	return async([dir, parent](Notifier)
+	return async([dir](Notifier)
 	{
 		initGit();
 
@@ -103,9 +103,9 @@ static int gitFetchNotifier(const git_transfer_progress *stats, void *payload)
 	return 0;
 }
 
-Future<GitRepo *> GitRepo::clone(const QDir &dir, const QUrl &url, QObject *parent)
+Future<GitRepo *> GitRepo::clone(const QDir &dir, const QUrl &url)
 {
-	return async([dir, url, parent](Notifier notifier)
+	return async([dir, url](Notifier notifier)
 	{
 		initGit();
 

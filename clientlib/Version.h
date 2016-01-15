@@ -15,7 +15,6 @@
 
 #pragma once
 
-#include <QObject>
 #include <QPair>
 #include <QVector>
 
@@ -68,15 +67,10 @@ private:
 	QVector<QVector<Section>> m_sections;
 };
 
-class VersionRequirement : public QObject
+class VersionRequirement
 {
-	Q_OBJECT
-	Q_PROPERTY(Version::Type allowedType READ allowedType WRITE setAllowedType NOTIFY allowedTypeChanged)
-	Q_PROPERTY(Version version READ version WRITE setVersion NOTIFY versionChanged)
-	Q_PROPERTY(Type type READ type WRITE setType NOTIFY typeChanged)
-
 public:
-	explicit VersionRequirement(QObject *parent = nullptr);
+	explicit VersionRequirement();
 
 	enum Type
 	{
@@ -84,28 +78,22 @@ public:
 		Greater, GreaterEqual,
 		Equal, NonEqual
 	};
-	Q_ENUM(Type)
 
 	Version version() const { return m_version; }
-	void setVersion(const Version &version);
+	void setVersion(const Version &version) { m_version = version; }
 
 	Type type() const { return m_type; }
-	void setType(const Type type);
+	void setType(const Type type) { m_type = type; }
 
 	bool accepts(const Version &version) const;
 
 	Version::Type allowedType() const { return m_allowedType; }
-	void setAllowedType(const Version::Type allowedType);
+	void setAllowedType(const Version::Type allowedType) { m_allowedType = allowedType; }
 
 	bool isValid() const { return m_version.isValid(); }
 
 	QString toString() const;
-	static VersionRequirement *fromString(const QString &string, QObject *parent = nullptr);
-
-signals:
-	void versionChanged(const Version &version);
-	void typeChanged(const Type type);
-	void allowedTypeChanged(Version::Type allowedType);
+	static VersionRequirement fromString(const QString &string);
 
 private:
 	Version m_version;

@@ -35,10 +35,10 @@ add_feature_info(Integration WITH_INTEGRATION "Build with build system integrati
 
 add_subdirectory(common)
 add_subdirectory(clientlib)
-add_subdirectory(client)
 if(WITH_INTEGRATION)
 	add_subdirectory(integration)
 endif()
+add_subdirectory(client)
 
 set_package_properties(Qt5 PROPERTIES URL http://qt.io/ DESCRIPTION "a cross-platform application framework" TYPE REQUIRED)
 set_package_properties(Qt5Core PROPERTIES URL http://qt.io/ DESCRIPTION "Core non-graphical classes used by other modules." TYPE REQUIRED)
@@ -48,3 +48,16 @@ set_package_properties(LibCURL PROPERTIES URL http://curl.haxx.se/libcurl/ DESCR
 set_package_properties(KF5Archive PROPERTIES URL http://api.kde.org/frameworks-api/frameworks5-apidocs/karchive/html/ DESCRIPTION "provides classes for easy reading, creation and manipulation of archive formats like ZIP and TAR." TYPE REQUIRED)
 
 feature_summary(FATAL_ON_MISSING_REQUIRED_PACKAGES WHAT ALL)
+
+install(EXPORT RalphLib DESTINATION lib/cmake)
+
+set(CPACK_GENERATOR "")
+set(CPACK_PACKAGE_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
+set(CPACK_PACKAGE_VERSION_MINOR ${PROJECT_VERSION_MINOR})
+set(CPACK_PACKAGE_VERSION_PATCH ${PROJECT_VERSION_PATCH})
+set(CPACK_PACKAGE_VENDOR "Jan Dalheimer")
+set(CPACK_PACKAGE_CONTACT "jan@dalheimer.de")
+set(CPACK_SOURCE_GENERATOR "TGZ")
+set(CPACK_SOURCE_IGNORE_FILES /\\.git/ .gitignore)
+set(CPACK_SOURCE_PACKAGE_FILE_NAME "${PROJECT_NAME}-${PROJECT_VERSION}")
+include(CPack)

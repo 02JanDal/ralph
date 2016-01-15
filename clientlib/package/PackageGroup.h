@@ -19,6 +19,7 @@
 #include <QDir>
 
 #include "task/Task.h"
+#include "PackageConfiguration.h"
 
 namespace Ralph {
 namespace ClientLib {
@@ -28,16 +29,17 @@ class PackageGroup
 {
 public:
 	explicit PackageGroup(const QString &name, const QDir &dir);
+	explicit PackageGroup() {}
 
 	QString name() const { return m_name; }
 	QDir dir() const { return m_dir; }
 
-	Future<void> install(const Package *pkg);
+	Future<void> install(const Package *pkg, const PackageConfiguration &config);
 	Future<void> remove(const Package *pkg);
 
-	bool isInstalled(const Package *pkg);
+	bool isInstalled(const Package *pkg) const;
 
-	QDir targetDir(const Package *pkg) const;
+	QDir installDir(const Package *pkg) const;
 	QDir baseDir(const Package *pkg) const;
 
 private: // static
@@ -52,10 +54,12 @@ private: // from storage
 	{
 		const Package *pkg;
 		int mirrorIndex;
+		PackageConfiguration config;
 	};
 	QVector<InstalledPackage> m_installed;
 
 	QVector<InstalledPackage>::Iterator findInstalled(const Package *pkg);
+	QVector<InstalledPackage>::ConstIterator findInstalled(const Package *pkg) const;
 };
 
 }

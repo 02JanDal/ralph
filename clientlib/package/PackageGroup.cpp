@@ -35,9 +35,9 @@ PackageGroup::PackageGroup(const QString &name, const QDir &dir)
 	FS::ensureExists(dir);
 }
 
-Future<void> PackageGroup::install(const Package *pkg)
+Future<void> PackageGroup::install(const Package *pkg, const PackageConfiguration &config)
 {
-	return async([this, pkg](Notifier notifier)
+	return async([this, pkg, config](Notifier notifier)
 	{
 		readSettings();
 		if (isInstalled(pkg)) {
@@ -50,9 +50,11 @@ Future<void> PackageGroup::install(const Package *pkg)
 		QTemporaryDir buildDir;
 
 		ActionContext ctxt;
-		ctxt.emplace<InstallContextItem>(targetDir(pkg), buildDir.path());
-		notifier.await(pkg->mirrors().first()->install(ctxt));
-		m_installed.append(InstalledPackage{pkg, 0});
+		ctxt.emplace<InstallContextItem>(installDir(pkg), buildDir.path());
+		ctxt.emplace<ConfigurationContextItem>(config);
+		notifier.await(pkg->mirrors().first().install(ctxt));
+
+		m_installed.append(InstalledPackage{pkg, 0, config});
 		writeSettings();
 	});
 }
@@ -75,12 +77,12 @@ Future<void> PackageGroup::remove(const Package *pkg)
 	});
 }
 
-bool PackageGroup::isInstalled(const Package *pkg)
+bool PackageGroup::isInstalled(const Package *pkg) const
 {
 	return findInstalled(pkg) != m_installed.end();
 }
 
-QDir PackageGroup::targetDir(const Package *pkg) const
+QDir PackageGroup::installDir(const Package *pkg) const
 {
 	return baseDir(pkg).absoluteFilePath("install");
 }
@@ -100,8 +102,9 @@ void PackageGroup::readSettings()
 	m_installed = Functional::map(Json::ensureIsArrayOf<QJsonObject>(root, "packages"), [](const QJsonObject &obj)
 	{
 		return InstalledPackage{
-			Package::fromJson(QJsonDocument(Json::ensureObject(obj, "pkg"))),
-					Json::ensureInteger(obj, "mirrorIndex")
+					Package::fromJson(QJsonDocument(Json::ensureObject(obj, "pkg"))),
+					Json::ensureInteger(obj, "mirrorIndex"),
+					PackageConfiguration::fromJson(Json::ensureObject(obj, "config"))
 		};
 	});
 }
@@ -113,6 +116,7 @@ void PackageGroup::writeSettings() const
 		QJsonObject obj;
 		obj.insert("pkg", pkg.pkg->toJson());
 		obj.insert("mirrorIndex", pkg.mirrorIndex);
+		obj.insert("config", pkg.config.toJson());
 		return obj;
 	})));
 	Json::write(root, m_dir.absoluteFilePath("meta.json"));
@@ -121,6 +125,13 @@ void PackageGroup::writeSettings() const
 QVector<PackageGroup::InstalledPackage>::Iterator PackageGroup::findInstalled(const Package *pkg)
 {
 	return std::find_if(m_installed.begin(), m_installed.end(), [pkg](const InstalledPackage &pack)
+	{
+		return pack.pkg->name() == pkg->name() && pack.pkg->version() == pkg->version();
+	});
+}
+QVector<PackageGroup::InstalledPackage>::ConstIterator PackageGroup::findInstalled(const Package *pkg) const
+{
+	return std::find_if(m_installed.constBegin(), m_installed.constEnd(), [pkg](const InstalledPackage &pack)
 	{
 		return pack.pkg->name() == pkg->name() && pack.pkg->version() == pkg->version();
 	});

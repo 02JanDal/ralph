@@ -15,26 +15,36 @@
 
 #pragma once
 
-#include <QDir>
+#include <QHash>
 
-#include "package/Package.h"
+class QJsonObject;
 
 namespace Ralph {
 namespace ClientLib {
+class Project;
+class Version;
+class Package;
+class PackageGroup;
 
-class Project : public Package
+class ProjectLockFile
 {
 public:
-	explicit Project(const QDir &dir);
-	virtual ~Project();
+	explicit ProjectLockFile(const Project *project);
 
-	QDir dir() const { return m_dir; }
+	void setPackage(const Package *pkg, const PackageGroup *group);
+	Version getVersion(const QString &name) const;
+	QString getGroup(const QString &name) const;
+	bool contains(const QString &name) const;
 
-	static const Project *fromJson(const QJsonDocument &doc, const QDir &dir);
-	static const Project *load(const QDir &dir);
+	void write() const;
+	void read();
 
 private:
-	QDir m_dir;
+	const Project *m_project;
+	QHash<QString, QString> m_versions;
+	QHash<QString, QString> m_groups;
+
+	QString filename() const;
 };
 
 }

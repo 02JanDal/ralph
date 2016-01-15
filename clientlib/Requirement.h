@@ -27,6 +27,7 @@ QT_END_NAMESPACE
 
 namespace Ralph {
 namespace ClientLib {
+class ActionContext;
 
 class Requirement
 {
@@ -35,12 +36,12 @@ public:
 
 	virtual ~Requirement();
 
-	virtual QJsonValue toJson() const = 0;
+	virtual QJsonObject toJson() const = 0;
 
 	static QVector<Requirement::Ptr> fromJson(const QJsonArray &array);
 	static QJsonArray toJson(const QVector<Requirement::Ptr> &requirements);
 
-	virtual bool isSatisfied() const = 0;
+	virtual bool isSatisfied(const ActionContext &ctxt) const = 0;
 };
 
 class AndRequirement : public Requirement
@@ -48,9 +49,9 @@ class AndRequirement : public Requirement
 public:
 	explicit AndRequirement(QVector<Requirement::Ptr> &&children) : m_children(std::forward<decltype(children)>(children)) {}
 
-	QJsonValue toJson() const override;
+	QJsonObject toJson() const override;
 
-	bool isSatisfied() const override;
+	bool isSatisfied(const ActionContext &ctxt) const override;
 
 private:
 	QVector<Requirement::Ptr> m_children;
@@ -60,9 +61,9 @@ class OrRequirement : public Requirement
 public:
 	explicit OrRequirement(QVector<Requirement::Ptr> &&children) : m_children(std::forward<decltype(children)>(children)) {}
 
-	QJsonValue toJson() const override;
+	QJsonObject toJson() const override;
 
-	bool isSatisfied() const override;
+	bool isSatisfied(const ActionContext &ctxt) const override;
 
 private:
 	QVector<Requirement::Ptr> m_children;
@@ -83,9 +84,9 @@ public:
 	explicit OsRequirement(const Os os) : m_os(os) {}
 	explicit OsRequirement(const QString &string);
 
-	QJsonValue toJson() const override;
+	QJsonObject toJson() const override;
 
-	bool isSatisfied() const override { return m_os == m_currentOs; }
+	bool isSatisfied(const ActionContext &) const override { return m_os == m_currentOs; }
 
 private:
 	const Os m_os;
@@ -94,13 +95,13 @@ private:
 	static Os fromString(const QString &str);
 };
 
-class ConfigurationRequirement : public Requirement
+class BuildTypeRequirement : public Requirement
 {
 public:
-	explicit ConfigurationRequirement(const QString &configuration);
+	explicit BuildTypeRequirement(const QString &configuration);
 
-	QJsonValue toJson() const override;
-	bool isSatisfied() const override { return false; }
+	QJsonObject toJson() const override;
+	bool isSatisfied(const ActionContext &ctxt) const override;
 
 private:
 	QString m_configuration;
